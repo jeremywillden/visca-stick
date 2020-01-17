@@ -5,6 +5,7 @@ import "log"
 import "time"
 import "math"
 import "go.bug.st/serial.v1"
+import "encoding/hex"
 
 func main() {
 	mode := &serial.Mode{
@@ -120,12 +121,12 @@ func main() {
 		if(oldpan != pan) {
 			oldpan = pan
 			log.Println("Pan is now:", oldpan)
-			sendVisca(port, []byte{0x88, 0x01, 0x04, 0x07, 0x02, 0xFF})
+			sendPanTilt(port, 8, pan, tilt) // 8 is broadcast to all cameras
 		}
 		if(oldtilt != tilt) {
 			oldtilt = tilt
 			log.Println("Tilt is now:", oldtilt)
-			sendVisca(port, []byte{0x88, 0x01, 0x04, 0x07, 0x02, 0xFF})
+			sendPanTilt(port, 8, pan, tilt) // 8 is broadcast to all cameras
 		}
 		if(oldzoom != zoom) {
 			oldzoom = zoom
@@ -135,7 +136,7 @@ func main() {
 		if(oldfocus != focus) {
 			oldfocus = focus
 			log.Println("Focus is now:", oldfocus)
-			sendVisca(port, []byte{0x88, 0x01, 0x04, 0x07, 0x02, 0xFF})
+			sendFocus(port, 8, focus) // 8 is broadcast to all cameras
 		}
 	}
 
@@ -154,8 +155,45 @@ func sendZoom(port serial.Port, cam byte, zoom int8) {
 	}
 }
 
+func sendFocus(port serial.Port, cam byte, focus int8) {
+	if((focus>0) && (focus<=7)) {
+		sendVisca(port, []byte{(0x80+cam), 0x01, 0x04, 0x08, 0x02, 0xFF})
+	} else if((focus<0) && (focus>=-7)) {
+		sendVisca(port, []byte{(0x80+cam), 0x01, 0x04, 0x08, 0x03, 0xFF})
+	} else {
+		sendVisca(port, []byte{(0x80+cam), 0x01, 0x04, 0x08, 0x00, 0xFF})
+	}
+}
+
+func sendPanTilt(port serial.Port, cam byte, pan int8, tilt int8) {
+	if(pan>22) {pan = 0}
+	if(pan<(-22)) {pan = 0}
+	if(tilt>20) {tilt = 0}
+	if(tilt<(-20)) {tilt = 0}
+	if((pan==0) && (tilt==0)) { // Stop
+		sendVisca(port, []byte{(0x80+cam), 0x01, 0x06, 0x01, 0x00, 0x00, 0x03, 0x03, 0xFF})
+	} else if((pan==0) && (tilt>0)) { // Up
+		sendVisca(port, []byte{(0x80+cam), 0x01, 0x06, 0x01, 0x00, byte(tilt), 0x03, 0x01, 0xFF})
+	} else if((pan==0) && (tilt<0)) { // Down
+		sendVisca(port, []byte{(0x80+cam), 0x01, 0x06, 0x01, 0x00, byte(0-tilt), 0x03, 0x02, 0xFF})
+	} else if((pan<0) && (tilt==0)) { // Left
+		sendVisca(port, []byte{(0x80+cam), 0x01, 0x06, 0x01, byte(0-pan), 0x00, 0x01, 0x03, 0xFF})
+	} else if((pan>0) && (tilt==0)) { // Right
+		sendVisca(port, []byte{(0x80+cam), 0x01, 0x06, 0x01, byte(pan), 0x00, 0x02, 0x03, 0xFF})
+	} else if((pan<0) && (tilt>0)) { // UpLeft
+		sendVisca(port, []byte{(0x80+cam), 0x01, 0x06, 0x01, byte(0-pan), byte(tilt), 0x01, 0x01, 0xFF})
+	} else if((pan>0) && (tilt>0)) { // UpRight
+		sendVisca(port, []byte{(0x80+cam), 0x01, 0x06, 0x01, byte(pan), byte(tilt), 0x02, 0x01, 0xFF})
+	} else if((pan<0) && (tilt<0)) { // DownLeft
+		sendVisca(port, []byte{(0x80+cam), 0x01, 0x06, 0x01, byte(0-pan), byte(0-tilt), 0x01, 0x02, 0xFF})
+	} else if((pan>0) && (tilt<0)) { // DownRight
+		sendVisca(port, []byte{(0x80+cam), 0x01, 0x06, 0x01, byte(pan), byte(0-tilt), 0x02, 0x02, 0xFF})
+	}
+}
+
 func sendVisca(port serial.Port, message []byte) {
 	n, err := port.Write(message)
+	log.Println(hex.Dump(message))
 	_ = n
 	if err != nil {
 		log.Fatal(err)
