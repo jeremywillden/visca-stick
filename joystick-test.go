@@ -8,10 +8,10 @@ import "time"
 import "math"
 
 func main() {
-	var pan int8 = 0
-	var tilt int8 = 0
-	var zoom int8 = 0
-	var focus int8 = 0
+	var pan, oldpan int8 = 0,0
+	var tilt, oldtilt int8 = 0,0
+	var zoom, oldzoom int8 = 0,0
+	var focus, oldfocus int8 = 0,0
 	// try connecting to specific controller.
 	// the index is system assigned, typically it increments on each new controller added.
 	// indexes remain fixed for a given controller, if/when other controller(s) are removed.
@@ -52,31 +52,25 @@ func main() {
 				hpos:=h1.(CoordsEvent)
 				if(pan != int8(math.Floor(float64(7*hpos.X)))) {
 					pan = int8(math.Floor(float64(7*hpos.X)))
-					log.Println("Pan is now:", pan)
 				}
 				if(tilt != int8(math.Floor(float64(-7*hpos.Y)))) {
 					tilt = int8(math.Floor(float64(-7*hpos.Y)))
-					log.Println("Tilt is now:", tilt)
 				}
 			case h2 := <-h2move:
 				hpos:=h2.(CoordsEvent)
 //				if(pan != int8(math.Floor(float64(7*hpos.X)))) {
 //					pan = int8(math.Floor(float64(7*hpos.X)))
-//					log.Println("Pan is now:", pan)
 //				}
 				if(focus != int8(math.Floor(float64(7*hpos.Y)))) {
 					focus = int8(math.Floor(float64(7*hpos.Y)))
-					log.Println("Focus is now:", focus)
 				}
 			case h3 := <-h3move:
 				hpos:=h3.(CoordsEvent)
 				if(zoom != int8(math.Floor(float64(-7*hpos.X)))) {
 					zoom = int8(math.Floor(float64(-7*hpos.X)))
-					log.Println("Zoom is now:", zoom)
 				}
 //				if(tilt != int8(math.Floor(float64(7*hpos.Y)))) {
 //					tilt = int8(math.Floor(float64(7*hpos.Y)))
-//					log.Println("Tilt is now:", tilt)
 //				}
 			case h4 := <-h4move:
 				hpos:=h4.(CoordsEvent)
@@ -106,7 +100,29 @@ func main() {
 			}
 		}
 	}()
-	for {}
+	for {
+		// take care with these shared variables!
+		// they are single-byte to avoid race issues
+		// only write them in the joystick routine
+		// read them here and watch for changes
+		time.Sleep(time.Millisecond*125)
+		if(oldpan != pan) {
+			oldpan = pan
+			log.Println("Pan is now:", oldpan)
+		}
+		if(oldtilt != tilt) {
+			oldtilt = tilt
+			log.Println("Tilt is now:", oldtilt)
+		}
+		if(oldzoom != zoom) {
+			oldzoom = zoom
+			log.Println("Zoom is now:", oldzoom)
+		}
+		if(oldfocus != focus) {
+			oldfocus = focus
+			log.Println("Focus is now:", oldfocus)
+		}
+	}
 
 	log.Println("Timeout in 10 secs.")
 	time.Sleep(time.Second*10)
