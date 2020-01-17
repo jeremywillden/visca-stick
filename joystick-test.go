@@ -8,10 +8,10 @@ import "time"
 import "math"
 
 func main() {
-	var pan int8 = 0.0
-	var tilt int8 = 0.0
-//	var zoom float64 = 0.0
-//	var focus float64 = 0.0
+	var pan int8 = 0
+	var tilt int8 = 0
+	var zoom int8 = 0
+	var focus int8 = 0
 	// try connecting to specific controller.
 	// the index is system assigned, typically it increments on each new controller added.
 	// indexes remain fixed for a given controller, if/when other controller(s) are removed.
@@ -54,16 +54,30 @@ func main() {
 					pan = int8(math.Floor(float64(7*hpos.X)))
 					log.Println("Pan is now:", pan)
 				}
-				if(tilt != int8(math.Floor(float64(7*hpos.Y)))) {
-					tilt = int8(math.Floor(float64(7*hpos.Y)))
+				if(tilt != int8(math.Floor(float64(-7*hpos.Y)))) {
+					tilt = int8(math.Floor(float64(-7*hpos.Y)))
 					log.Println("Tilt is now:", tilt)
 				}
 			case h2 := <-h2move:
 				hpos:=h2.(CoordsEvent)
-				log.Println("hat #2 moved to:", hpos.X,hpos.Y)
+//				if(pan != int8(math.Floor(float64(7*hpos.X)))) {
+//					pan = int8(math.Floor(float64(7*hpos.X)))
+//					log.Println("Pan is now:", pan)
+//				}
+				if(focus != int8(math.Floor(float64(7*hpos.Y)))) {
+					focus = int8(math.Floor(float64(7*hpos.Y)))
+					log.Println("Focus is now:", focus)
+				}
 			case h3 := <-h3move:
 				hpos:=h3.(CoordsEvent)
-				log.Println("hat #3 moved to:", hpos.X,hpos.Y)
+				if(zoom != int8(math.Floor(float64(-7*hpos.X)))) {
+					zoom = int8(math.Floor(float64(-7*hpos.X)))
+					log.Println("Zoom is now:", zoom)
+				}
+//				if(tilt != int8(math.Floor(float64(7*hpos.Y)))) {
+//					tilt = int8(math.Floor(float64(7*hpos.Y)))
+//					log.Println("Tilt is now:", tilt)
+//				}
 			case h4 := <-h4move:
 				hpos:=h4.(CoordsEvent)
 				log.Println("hat #4 moved to:", hpos.X,hpos.Y)
