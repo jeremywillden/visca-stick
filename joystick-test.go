@@ -5,8 +5,13 @@ package main
 import . "github.com/splace/joysticks"
 import "log"
 import "time"
+import "math"
 
 func main() {
+	var pan float64 = 0.0
+	var tilt float64 = 0.0
+//	var zoom float64 = 0.0
+//	var focus float64 = 0.0
 	// try connecting to specific controller.
 	// the index is system assigned, typically it increments on each new controller added.
 	// indexes remain fixed for a given controller, if/when other controller(s) are removed.
@@ -43,6 +48,25 @@ func main() {
 	go func(){
 		for{
 			select {
+			case h1 := <-h1move:
+				hpos:=h1.(CoordsEvent)
+				if(pan != (math.Floor(float64(8*hpos.X)))) {
+					pan = math.Floor(float64(8*hpos.X))
+					log.Println("Pan is now:", pan)
+				}
+				if(tilt != (math.Floor(float64(8*hpos.Y)))) {
+					tilt = math.Floor(float64(8*hpos.Y))
+					log.Println("Tilt is now:", tilt)
+				}
+			case h2 := <-h2move:
+				hpos:=h2.(CoordsEvent)
+				log.Println("hat #2 moved to:", hpos.X,hpos.Y)
+			case h3 := <-h3move:
+				hpos:=h3.(CoordsEvent)
+				log.Println("hat #3 moved to:", hpos.X,hpos.Y)
+			case h4 := <-h4move:
+				hpos:=h4.(CoordsEvent)
+				log.Println("hat #4 moved to:", hpos.X,hpos.Y)
 			case <-b1press:
 				log.Println("button #1 pressed")
 			case <-b2press:
@@ -65,21 +89,10 @@ func main() {
 				log.Println("button #10 pressed")
 			case <-b11press:
 				log.Println("button #11 pressed")
-			case h1 := <-h1move:
-				hpos:=h1.(CoordsEvent)
-				log.Println("hat #1 moved to:", hpos.X,hpos.Y)
-			case h2 := <-h2move:
-				hpos:=h2.(CoordsEvent)
-				log.Println("hat #2 moved to:", hpos.X,hpos.Y)
-			case h3 := <-h3move:
-				hpos:=h3.(CoordsEvent)
-				log.Println("hat #3 moved to:", hpos.X,hpos.Y)
-			case h4 := <-h4move:
-				hpos:=h4.(CoordsEvent)
-				log.Println("hat #4 moved to:", hpos.X,hpos.Y)
 			}
 		}
 	}()
+	for {}
 
 	log.Println("Timeout in 10 secs.")
 	time.Sleep(time.Second*10)
