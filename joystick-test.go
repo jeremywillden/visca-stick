@@ -8,8 +8,8 @@ import "time"
 import "math"
 
 func main() {
-	var pan float64 = 0.0
-	var tilt float64 = 0.0
+	var pan int8 = 0.0
+	var tilt int8 = 0.0
 //	var zoom float64 = 0.0
 //	var focus float64 = 0.0
 	// try connecting to specific controller.
@@ -50,12 +50,12 @@ func main() {
 			select {
 			case h1 := <-h1move:
 				hpos:=h1.(CoordsEvent)
-				if(pan != (math.Floor(float64(8*hpos.X)))) {
-					pan = math.Floor(float64(8*hpos.X))
+				if(pan != int8(math.Floor(float64(7*hpos.X)))) {
+					pan = int8(math.Floor(float64(7*hpos.X)))
 					log.Println("Pan is now:", pan)
 				}
-				if(tilt != (math.Floor(float64(8*hpos.Y)))) {
-					tilt = math.Floor(float64(8*hpos.Y))
+				if(tilt != int8(math.Floor(float64(7*hpos.Y)))) {
+					tilt = int8(math.Floor(float64(7*hpos.Y)))
 					log.Println("Tilt is now:", tilt)
 				}
 			case h2 := <-h2move:
