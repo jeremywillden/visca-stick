@@ -62,19 +62,19 @@ func main() {
 			select {
 			case h1 := <-h1move:
 				hpos:=h1.(CoordsEvent)
-				if(pan != int8(math.Floor(float64(7*hpos.X)))) {
-					pan = int8(math.Floor(float64(7*hpos.X)))
+				if(pan != int8(math.Floor(float64(22*hpos.X)))) {
+					pan = int8(math.Floor(float64(22*hpos.X)))
 				}
-				if(tilt != int8(math.Floor(float64(-7*hpos.Y)))) {
-					tilt = int8(math.Floor(float64(-7*hpos.Y)))
+				if(tilt != int8(math.Floor(float64(-20*hpos.Y)))) {
+					tilt = int8(math.Floor(float64(-20*hpos.Y)))
 				}
 			case h2 := <-h2move:
 				hpos:=h2.(CoordsEvent)
 //				if(pan != int8(math.Floor(float64(7*hpos.X)))) {
 //					pan = int8(math.Floor(float64(7*hpos.X)))
 //				}
-				if(focus != int8(math.Floor(float64(7*hpos.Y)))) {
-					focus = int8(math.Floor(float64(7*hpos.Y)))
+				if(focus != int8(math.Floor(float64(10*hpos.Y)))) {
+					focus = int8(math.Floor(float64(10*hpos.Y)))
 				}
 			case h3 := <-h3move:
 				hpos:=h3.(CoordsEvent)
