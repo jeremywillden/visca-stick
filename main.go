@@ -9,6 +9,7 @@ import "math"
 import "fmt"
 import "go.bug.st/serial.v1"
 import "encoding/hex"
+//import "os/signal"
 
 var camPort serial.Port
 var camReader *bufio.Reader
@@ -98,9 +99,6 @@ func main() {
 				}
 			case h2 := <-h2move:
 				hpos:=h2.(joysticks.CoordsEvent)
-//				if(pan != int8(math.Floor(float64(7*hpos.X)))) {
-//					pan = int8(math.Floor(float64(7*hpos.X)))
-//				}
 				if(focus != int8(math.Floor(float64(10*hpos.Y)))) {
 					focus = int8(math.Floor(float64(10*hpos.Y)))
 				}
@@ -109,9 +107,6 @@ func main() {
 				if(zoom != int8(math.Floor(float64(-7*hpos.X)))) {
 					zoom = int8(math.Floor(float64(-7*hpos.X)))
 				}
-//				if(tilt != int8(math.Floor(float64(7*hpos.Y)))) {
-//					tilt = int8(math.Floor(float64(7*hpos.Y)))
-//				}
 			case h4 := <-h4move:
 				hpos:=h4.(joysticks.CoordsEvent)
 				log.Println("hat #4 moved to:", hpos.X,hpos.Y)
@@ -161,6 +156,7 @@ func main() {
 				log.Println("button #11 released")
 			}
 		}
+		log.Println("exiting event capture goroutine")
 	}()
 	for {
 		// take care with these shared variables!
@@ -189,10 +185,7 @@ func main() {
 			sendFocus(camPort, 8, focus) // 8 is broadcast to all cameras
 		}
 	}
-
-	log.Println("Timeout in 10 secs.")
-	time.Sleep(time.Second*10)
-	log.Println("Shutting down due to timeout.")
+	log.Println("exiting final for loop")
 }
 
 func serialRead(scanner *bufio.Scanner) {
@@ -200,6 +193,7 @@ func serialRead(scanner *bufio.Scanner) {
 		scanner.Scan()
 		fmt.Println("Camera Response: ", hex.Dump([]byte(scanner.Text())))
 	}
+	log.Println("exiting serial read goroutine")
 }
 
 func sendZoom(port serial.Port, cam byte, zoom int8) {
