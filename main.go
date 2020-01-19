@@ -4,6 +4,7 @@ import "github.com/splace/joysticks"
 import "log"
 import "time"
 import "math"
+import "fmt"
 import "go.bug.st/serial.v1"
 import "encoding/hex"
 
@@ -19,6 +20,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	go serialRead(port)
+
 
 	var pan, oldpan int8 = 0,0
 	var tilt, oldtilt int8 = 0,0
@@ -181,6 +184,22 @@ func main() {
 	log.Println("Timeout in 10 secs.")
 	time.Sleep(time.Second*10)
 	log.Println("Shutting down due to timeout.")
+}
+
+func serialRead(port serial.Port) {
+	buff := make([]byte, 100)
+	for {
+		n, err := port.Read(buff)
+		if err != nil {
+			log.Fatal(err)
+			break
+		}
+		if n == 0 {
+			fmt.Println("\nEOF")
+			break
+		}
+		fmt.Println("Camera Response: ", hex.Dump(buff[:n]))
+	}
 }
 
 func sendZoom(port serial.Port, cam byte, zoom int8) {
