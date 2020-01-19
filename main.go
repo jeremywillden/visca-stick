@@ -196,8 +196,10 @@ func main() {
 }
 
 func serialRead(scanner *bufio.Scanner) {
-	scanner.Scan()
-	fmt.Println("Camera Response: ", hex.Dump([]byte(scanner.Text())))
+	for {
+		scanner.Scan()
+		fmt.Println("Camera Response: ", hex.Dump([]byte(scanner.Text())))
+	}
 }
 
 func sendZoom(port serial.Port, cam byte, zoom int8) {
