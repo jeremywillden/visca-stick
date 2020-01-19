@@ -2,6 +2,7 @@ package main
 
 import "github.com/splace/joysticks"
 import "log"
+import "strings"
 import "bufio"
 import "time"
 import "math"
@@ -27,6 +28,7 @@ func main() {
 	}
 	camReader = bufio.NewReader(camPort)
 	camScanner = bufio.NewScanner(camReader)
+	camScanner.Split(AnySplit("\xFF"))
 	go serialRead(camScanner)
 
 
@@ -195,7 +197,7 @@ func main() {
 
 func serialRead(scanner *bufio.Scanner) {
 	scanner.Scan()
-	fmt.Println("Camera Response: ", scanner.Text())
+	fmt.Println("Camera Response: ", hex.Dump([]byte(scanner.Text())))
 }
 
 func sendZoom(port serial.Port, cam byte, zoom int8) {
@@ -250,5 +252,20 @@ func sendVisca(port serial.Port, message []byte) {
 	_ = n
 	if err != nil {
 		log.Fatal(err)
+	}
+}
+
+func AnySplit(substring string) func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	return func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+		if atEOF && 0==len(data) {
+			return 0, nil, nil
+		}
+		if i := strings.Index(string(data), substring); i >= 0 {
+			return i + len(substring), data[0:i], nil
+		}
+		if atEOF {
+			return len(data), data, nil
+		}
+		return
 	}
 }
