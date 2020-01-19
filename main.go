@@ -9,13 +9,17 @@ import "math"
 import "fmt"
 import "go.bug.st/serial.v1"
 import "encoding/hex"
-//import "os/signal"
+import "os/signal"
+import "syscall"
+import "os"
 
 var camPort serial.Port
 var camReader *bufio.Reader
 var camScanner *bufio.Scanner
 
 func main() {
+	killSignal := make(chan os.Signal, 1)
+	signal.Notify(killSignal, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGSTOP, syscall.SIGQUIT)
 	mode := &serial.Mode{
 		BaudRate: 9600,
 		Parity: serial.NoParity,
@@ -82,8 +86,8 @@ func main() {
 	go device.ParcelOutEvents()
 
 	// handle event channels
-	go func(){
-		for{
+	go func() {
+		for {
 			select {
                         case oe := <-jevent:
                                 if((0==oe.Index) && (0==oe.Type) && (0==oe.Value)) {
@@ -158,34 +162,39 @@ func main() {
 		}
 		log.Println("exiting event capture goroutine")
 	}()
-	for {
-		// take care with these shared variables!
-		// they are single-byte to avoid race issues
-		// only write them in the joystick routine
-		// read them here and watch for changes
-		time.Sleep(time.Millisecond*125)
-		if(oldpan != pan) {
-			oldpan = pan
-			log.Println("Pan is now:", oldpan)
-			sendPanTilt(camPort, 8, pan, tilt) // 8 is broadcast to all cameras
+
+	go func() {
+		for {
+			// take care with these shared variables!
+			// they are single-byte to avoid race issues
+			// only write them in the joystick routine
+			// read them here and watch for changes
+			time.Sleep(time.Millisecond*125)
+			if(oldpan != pan) {
+				oldpan = pan
+				log.Println("Pan is now:", oldpan)
+				sendPanTilt(camPort, 8, pan, tilt) // 8 is broadcast to all cameras
+			}
+			if(oldtilt != tilt) {
+				oldtilt = tilt
+				log.Println("Tilt is now:", oldtilt)
+				sendPanTilt(camPort, 8, pan, tilt) // 8 is broadcast to all cameras
+			}
+			if(oldzoom != zoom) {
+				oldzoom = zoom
+				log.Println("Zoom is now:", oldzoom)
+				sendZoom(camPort, 8, zoom) // 8 is broadcast to all cameras
+			}
+			if(oldfocus != focus) {
+				oldfocus = focus
+				log.Println("Focus is now:", oldfocus)
+				sendFocus(camPort, 8, focus) // 8 is broadcast to all cameras
+			}
 		}
-		if(oldtilt != tilt) {
-			oldtilt = tilt
-			log.Println("Tilt is now:", oldtilt)
-			sendPanTilt(camPort, 8, pan, tilt) // 8 is broadcast to all cameras
-		}
-		if(oldzoom != zoom) {
-			oldzoom = zoom
-			log.Println("Zoom is now:", oldzoom)
-			sendZoom(camPort, 8, zoom) // 8 is broadcast to all cameras
-		}
-		if(oldfocus != focus) {
-			oldfocus = focus
-			log.Println("Focus is now:", oldfocus)
-			sendFocus(camPort, 8, focus) // 8 is broadcast to all cameras
-		}
-	}
-	log.Println("exiting final for loop")
+		log.Println("exiting final for loop")
+	}()
+	<-killSignal
+	log.Println("exiting!")
 }
 
 func serialRead(scanner *bufio.Scanner) {
