@@ -2,11 +2,16 @@ package main
 
 import "github.com/splace/joysticks"
 import "log"
+import "bufio"
 import "time"
 import "math"
 import "fmt"
 import "go.bug.st/serial.v1"
 import "encoding/hex"
+
+var camPort serial.Port
+var camReader *bufio.Reader
+var camScanner *bufio.Scanner
 
 func main() {
 	mode := &serial.Mode{
@@ -16,11 +21,13 @@ func main() {
 		StopBits: serial.OneStopBit,
 	}
 
-	port, err := serial.Open("/dev/ttyUSB0", mode)
+	camPort, err := serial.Open("/dev/ttyUSB0", mode)
 	if err != nil {
 		log.Fatal(err)
 	}
-	go serialRead(port)
+	camReader = bufio.NewReader(camPort)
+	camScanner = bufio.NewScanner(camReader)
+	go serialRead(camScanner)
 
 
 	var pan, oldpan int8 = 0,0
@@ -162,22 +169,22 @@ func main() {
 		if(oldpan != pan) {
 			oldpan = pan
 			log.Println("Pan is now:", oldpan)
-			sendPanTilt(port, 8, pan, tilt) // 8 is broadcast to all cameras
+			sendPanTilt(camPort, 8, pan, tilt) // 8 is broadcast to all cameras
 		}
 		if(oldtilt != tilt) {
 			oldtilt = tilt
 			log.Println("Tilt is now:", oldtilt)
-			sendPanTilt(port, 8, pan, tilt) // 8 is broadcast to all cameras
+			sendPanTilt(camPort, 8, pan, tilt) // 8 is broadcast to all cameras
 		}
 		if(oldzoom != zoom) {
 			oldzoom = zoom
 			log.Println("Zoom is now:", oldzoom)
-			sendZoom(port, 8, zoom) // 8 is broadcast to all cameras
+			sendZoom(camPort, 8, zoom) // 8 is broadcast to all cameras
 		}
 		if(oldfocus != focus) {
 			oldfocus = focus
 			log.Println("Focus is now:", oldfocus)
-			sendFocus(port, 8, focus) // 8 is broadcast to all cameras
+			sendFocus(camPort, 8, focus) // 8 is broadcast to all cameras
 		}
 	}
 
@@ -186,20 +193,9 @@ func main() {
 	log.Println("Shutting down due to timeout.")
 }
 
-func serialRead(port serial.Port) {
-	buff := make([]byte, 100)
-	for {
-		n, err := port.Read(buff)
-		if err != nil {
-			log.Fatal(err)
-			break
-		}
-		if n == 0 {
-			fmt.Println("\nEOF")
-			break
-		}
-		fmt.Println("Camera Response: ", hex.Dump(buff[:n]))
-	}
+func serialRead(scanner *bufio.Scanner) {
+	scanner.Scan()
+	fmt.Println("Camera Response: ", scanner.Text())
 }
 
 func sendZoom(port serial.Port, cam byte, zoom int8) {
