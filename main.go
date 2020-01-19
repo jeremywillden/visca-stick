@@ -1,6 +1,6 @@
 package main
 
-import . "github.com/splace/joysticks"
+import "github.com/splace/joysticks"
 import "log"
 import "time"
 import "math"
@@ -27,7 +27,7 @@ func main() {
 	// try connecting to specific controller.
 	// the index is system assigned, typically it increments on each new controller added.
 	// indexes remain fixed for a given controller, if/when other controller(s) are removed.
-	device := Connect(1)
+	device := joysticks.Connect(1)
 
 	if device == nil {
 		panic("no HIDs")
@@ -52,6 +52,7 @@ func main() {
 	h2move := device.OnMove(2)
 	h3move := device.OnMove(3)
 	h4move := device.OnMove(4)
+        jevent := device.OSEvents
 
 	// start feeding OS events onto the event channels.
 	go device.ParcelOutEvents()
@@ -60,8 +61,12 @@ func main() {
 	go func(){
 		for{
 			select {
+                        case oe := <-jevent:
+                                if((0==oe.Index) && (0==oe.Type) && (0==oe.Value)) {
+                                        panic("null events")
+                                }
 			case h1 := <-h1move:
-				hpos:=h1.(CoordsEvent)
+				hpos:=h1.(joysticks.CoordsEvent)
 				if(pan != int8(math.Floor(float64(22*hpos.X)))) {
 					pan = int8(math.Floor(float64(22*hpos.X)))
 				}
@@ -69,7 +74,7 @@ func main() {
 					tilt = int8(math.Floor(float64(-20*hpos.Y)))
 				}
 			case h2 := <-h2move:
-				hpos:=h2.(CoordsEvent)
+				hpos:=h2.(joysticks.CoordsEvent)
 //				if(pan != int8(math.Floor(float64(7*hpos.X)))) {
 //					pan = int8(math.Floor(float64(7*hpos.X)))
 //				}
@@ -77,7 +82,7 @@ func main() {
 					focus = int8(math.Floor(float64(10*hpos.Y)))
 				}
 			case h3 := <-h3move:
-				hpos:=h3.(CoordsEvent)
+				hpos:=h3.(joysticks.CoordsEvent)
 				if(zoom != int8(math.Floor(float64(-7*hpos.X)))) {
 					zoom = int8(math.Floor(float64(-7*hpos.X)))
 				}
@@ -85,7 +90,7 @@ func main() {
 //					tilt = int8(math.Floor(float64(7*hpos.Y)))
 //				}
 			case h4 := <-h4move:
-				hpos:=h4.(CoordsEvent)
+				hpos:=h4.(joysticks.CoordsEvent)
 				log.Println("hat #4 moved to:", hpos.X,hpos.Y)
 			case <-b1press:
 				log.Println("button #1 pressed")
