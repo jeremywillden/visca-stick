@@ -48,6 +48,17 @@ func main() {
 	b9press := device.OnClose(9)
 	b10press := device.OnClose(10)
 	b11press := device.OnClose(11)
+	b1release := device.OnOpen(1)
+	b2release := device.OnOpen(2)
+	b3release := device.OnOpen(3)
+	b4release := device.OnOpen(4)
+	b5release := device.OnOpen(5)
+	b6release := device.OnOpen(6)
+	b7release := device.OnOpen(7)
+	b8release := device.OnOpen(8)
+	b9release := device.OnOpen(9)
+	b10release := device.OnOpen(10)
+	b11release := device.OnOpen(11)
 	h1move := device.OnMove(1)
 	h2move := device.OnMove(2)
 	h3move := device.OnMove(3)
@@ -114,6 +125,28 @@ func main() {
 				log.Println("button #10 pressed")
 			case <-b11press:
 				log.Println("button #11 pressed")
+			case <-b1release:
+				log.Println("button #1 released")
+			case <-b2release:
+				log.Println("button #2 released")
+			case <-b3release:
+				log.Println("button #3 released")
+			case <-b4release:
+				log.Println("button #4 released")
+			case <-b5release:
+				log.Println("button #5 released")
+			case <-b6release:
+				log.Println("button #6 released")
+			case <-b7release:
+				log.Println("button #7 released")
+			case <-b8release:
+				log.Println("button #8 released")
+			case <-b9release:
+				log.Println("button #9 released")
+			case <-b10release:
+				log.Println("button #10 released")
+			case <-b11release:
+				log.Println("button #11 released")
 			}
 		}
 	}()
