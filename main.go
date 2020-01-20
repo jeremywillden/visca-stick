@@ -37,9 +37,11 @@ func main() {
 	if len(serialPortList) == 0 {
 		log.Fatal("Can't find any serial ports", err)
 	}
+	foundOne := false
 	for _, oneSerialPort := range serialPortList {
 		log.Println("Found serial port", oneSerialPort.Name, "serial number", oneSerialPort.SerialNumber)
-		if oneSerialPort.IsUSB {
+		if (oneSerialPort.IsUSB && !foundOne) {
+			foundOne = true
 			camPort, err = serial.Open(oneSerialPort.Name, mode)
 			if err != nil {
 				log.Fatal(err)
