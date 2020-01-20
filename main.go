@@ -19,6 +19,36 @@ var camReader *bufio.Reader
 var camScanner *bufio.Scanner
 var killSignal chan os.Signal
 
+// must install:
+// go get -u golang.org/x/tools/cmd/stringer
+// then run:
+// stringer -type=WhiteBalanceT
+
+// WhiteBalanceT Type definition for an enum of White Balance camera settings
+type WhiteBalanceT int
+
+// Type values
+const (
+	wbUndefined WhiteBalanceT = iota // iota auto-increments
+	wbAuto
+	wbIndoor
+	wbOutdoor
+	wbOnePush
+	wbManual
+	wbOutdoorAuto
+	wbSodiumLampAuto
+	wbSodiumAuto
+)
+
+/*
+var TestState TestStateT
+
+func nullState() error {
+        println(TestState.String())
+        return nil
+}
+*/
+
 func main() {
 	killSignal = make(chan os.Signal, 1)
 	serialErrChan := make(chan bool)
