@@ -22,6 +22,7 @@ var killSignal chan os.Signal
 func main() {
 	killSignal = make(chan os.Signal, 1)
 	serialErrChan := make(chan bool)
+	controllerDisconnectChan := make(chan bool)
 	signal.Notify(killSignal, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGSTOP, syscall.SIGQUIT)
 	mode := &serial.Mode{
 		BaudRate: 9600,
@@ -53,9 +54,10 @@ func main() {
 	}
 	camReader = bufio.NewReader(camPort)
 	camScanner = bufio.NewScanner(camReader)
+	// Visca messages end in 0xFF, so use that as the termination character
+	// for reading responses back from the serial port (the 0xFF will be stripped)
 	camScanner.Split(AnySplit("\xFF"))
 	go serialRead(camScanner, serialErrChan)
-
 
 	var pan, oldpan int8 = 0,0
 	var tilt, oldtilt int8 = 0,0
@@ -67,7 +69,7 @@ func main() {
 	device := joysticks.Connect(1)
 
 	if device == nil {
-		panic("no HIDs")
+		panic("no HID Joystick/Controllers detected")
 	}
 
 	// using Connect allows a device to be interrogated
@@ -112,6 +114,7 @@ func main() {
                         case oe := <-jevent:
                                 if((0==oe.Index) && (0==oe.Type) && (0==oe.Value)) {
                                         panic("null events")
+					controllerDisconnectChan<-true
                                 }
 			case h1 := <-h1move:
 				hpos:=h1.(joysticks.CoordsEvent)
@@ -216,6 +219,7 @@ func main() {
 	select {
 		case <-killSignal:
 		case <-serialErrChan:
+		case <-controllerDisconnectChan:
 	}
 	log.Println("exiting!")
 }
