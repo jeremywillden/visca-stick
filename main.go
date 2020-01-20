@@ -8,6 +8,7 @@ import "time"
 import "math"
 //import "fmt"
 import "go.bug.st/serial.v1"
+import "go.bug.st/serial.v1/enumerator"
 import "encoding/hex"
 import "os/signal"
 import "syscall"
@@ -29,9 +30,24 @@ func main() {
 		StopBits: serial.OneStopBit,
 	}
 
-	camPort, err := serial.Open("/dev/ttyUSB0", mode)
+	serialPortList, err := enumerator.GetDetailedPortsList()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Error while listing serial ports", err)
+	}
+	if len(serialPortList) == 0 {
+		log.Fatal("Can't find any serial ports", err)
+	}
+	for _, oneSerialPort := range serialPortList {
+		log.Println("Found serial port", oneSerialPort.Name, "serial number", oneSerialPort.SerialNumber)
+		if oneSerialPort.IsUSB {
+			camPort, err = serial.Open(oneSerialPort.Name, mode)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+	}
+	if nil == camPort {
+		log.Fatal("No USB serial ports found to control the camera")
 	}
 	camReader = bufio.NewReader(camPort)
 	camScanner = bufio.NewScanner(camReader)
