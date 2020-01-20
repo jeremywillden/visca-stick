@@ -306,6 +306,26 @@ func gotoZoomFocus(port serial.Port, cam byte, zoom int16, focus int16) {
 	}
 }
 
+func gotoPanTilt(port serial.Port, cam byte, panspeed int16, tiltspeed int16, pan uint16, tilt uint16) {
+	// Direct pan and tilt command at specific speed
+	var m, n byte
+	if(panspeed>24) {panspeed = 0}
+	if(panspeed<(-24)) {panspeed = 0}
+	if(panspeed>=0) {m=byte(panspeed)} else {m=byte(0-panspeed)}
+	if(tiltspeed>20) {tiltspeed = 0}
+	if(tiltspeed<(-20)) {tiltspeed = 0}
+	if(tiltspeed>=0) {n=byte(tiltspeed)} else {n=byte(0-tiltspeed)}
+	p := 0x0F & byte(pan >> 12)
+	q := 0x0F & byte(pan >> 8)
+	r := 0x0F & byte(pan >> 4)
+	s := 0x0F & byte(pan)
+	t := 0x0F & byte(tilt >> 12)
+	u := 0x0F & byte(tilt >> 8)
+	v := 0x0F & byte(tilt >> 4)
+	w := 0x0F & byte(tilt)
+	sendVisca(port, []byte{(0x80+cam), 0x01, 0x06, 0x02, m, n, p, q, r, s, t, u, v, w, 0xFF})
+}
+
 func sendPanTilt(port serial.Port, cam byte, pan int8, tilt int8) {
 	if(pan>24) {pan = 0}
 	if(pan<(-24)) {pan = 0}
@@ -355,3 +375,9 @@ func AnySplit(substring string) func(data []byte, atEOF bool) (advance int, toke
 		return
 	}
 }
+
+// Read Pan Tilt Position
+// 0x8x 0x09 0x06 0x12 0xFF (query)
+// 0xy0 0x50 0x0p 0x0q 0x0r 0x0s 0x0t 0x0u 0x0v 0x0w 0xFF (response)
+// 0xpqrs - pan position
+// 0xtuvw - tilt position
