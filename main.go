@@ -247,13 +247,62 @@ func sendZoom(port serial.Port, cam byte, zoom int8) {
 	}
 }
 
+func gotoZoom(port serial.Port, cam byte, zoom int16) {
+	// Direct zoom level command from 0x0 (wide) to 0x4000 (telephoto)
+	if((zoom>=0) && (zoom<=0x4000)) {
+		p := byte(0x0F & zoom >> 12)
+		q := byte(0x0F & zoom >> 8)
+		r := byte(0x0F & zoom >> 4)
+		s := byte(0x0F & zoom)
+		sendVisca(port, []byte{(0x80+cam), 0x01, 0x04, 0x47, p, q, r, s, 0xFF})
+	}
+}
+
+func stopZoom(port serial.Port, cam byte) {
+	sendVisca(port, []byte{(0x80+cam), 0x01, 0x04, 0x07, 0x00, 0xFF})
+}
+
+func gotoFocus(port serial.Port, cam byte, focus int16) {
+	// Direct focus level command, levels may not be specified, using the same as zoom
+	if((focus>=0) && (focus<=0x4000)) {
+		p := byte(0x0F & focus >> 12)
+		q := byte(0x0F & focus >> 8)
+		r := byte(0x0F & focus >> 4)
+		s := byte(0x0F & focus)
+		sendVisca(port, []byte{(0x80+cam), 0x01, 0x04, 0x48, p, q, r, s, 0xFF})
+	}
+}
+
+func stopFocus(port serial.Port, cam byte) {
+	sendVisca(port, []byte{(0x80+cam), 0x01, 0x04, 0x08, 0x00, 0xFF})
+}
+
+func onePushAutoFocus(port serial.Port, cam byte) {
+	sendVisca(port, []byte{(0x80+cam), 0x01, 0x04, 0x18, 0x01, 0xFF})
+}
+
 func sendFocus(port serial.Port, cam byte, focus int8) {
-	if((focus>0) && (focus<=7)) {
+	if(focus>0) {
 		sendVisca(port, []byte{(0x80+cam), 0x01, 0x04, 0x08, 0x02, 0xFF})
-	} else if((focus<0) && (focus>=-7)) {
+	} else if(focus<0) {
 		sendVisca(port, []byte{(0x80+cam), 0x01, 0x04, 0x08, 0x03, 0xFF})
 	} else {
 		sendVisca(port, []byte{(0x80+cam), 0x01, 0x04, 0x08, 0x00, 0xFF})
+	}
+}
+
+func gotoZoomFocus(port serial.Port, cam byte, zoom int16, focus int16) {
+	// Direct zoom level command from 0x0 (wide) to 0x4000 (telephoto)
+	if((zoom>=0) && (zoom<=0x4000) && (focus>=0) && (focus<=0x4000)) {
+		p := 0x0F & byte(zoom >> 12)
+		q := 0x0F & byte(zoom >> 8)
+		r := 0x0F & byte(zoom >> 4)
+		s := 0x0F & byte(zoom)
+		t := 0x0F & byte(focus >> 12)
+		u := 0x0F & byte(focus >> 8)
+		v := 0x0F & byte(focus >> 4)
+		w := 0x0F & byte(focus)
+		sendVisca(port, []byte{(0x80+cam), 0x01, 0x04, 0x47, p, q, r, s, t, u, v, w, 0xFF})
 	}
 }
 
