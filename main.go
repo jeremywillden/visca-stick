@@ -148,6 +148,7 @@ func main() {
                                 }
 			case h1 := <-h1move:
 				hpos:=h1.(joysticks.CoordsEvent)
+				//log.Println("Pos: ", hpos.X, "x, ", hpos.Y, "y")
 				if(pan != int8(math.Floor(float64(24*hpos.X)))) {
 					pan = int8(math.Floor(float64(24*hpos.X)))
 				}
