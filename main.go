@@ -118,8 +118,8 @@ func main() {
                                 }
 			case h1 := <-h1move:
 				hpos:=h1.(joysticks.CoordsEvent)
-				if(pan != int8(math.Floor(float64(22*hpos.X)))) {
-					pan = int8(math.Floor(float64(22*hpos.X)))
+				if(pan != int8(math.Floor(float64(24*hpos.X)))) {
+					pan = int8(math.Floor(float64(24*hpos.X)))
 				}
 				if(tilt != int8(math.Floor(float64(-20*hpos.Y)))) {
 					tilt = int8(math.Floor(float64(-20*hpos.Y)))
@@ -307,8 +307,8 @@ func gotoZoomFocus(port serial.Port, cam byte, zoom int16, focus int16) {
 }
 
 func sendPanTilt(port serial.Port, cam byte, pan int8, tilt int8) {
-	if(pan>22) {pan = 0}
-	if(pan<(-22)) {pan = 0}
+	if(pan>24) {pan = 0}
+	if(pan<(-24)) {pan = 0}
 	if(tilt>20) {tilt = 0}
 	if(tilt<(-20)) {tilt = 0}
 	if((pan==0) && (tilt==0)) { // Stop
