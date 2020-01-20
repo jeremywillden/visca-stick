@@ -6,7 +6,7 @@ import "strings"
 import "bufio"
 import "time"
 import "math"
-import "fmt"
+//import "fmt"
 import "go.bug.st/serial.v1"
 import "encoding/hex"
 import "os/signal"
@@ -16,9 +16,11 @@ import "os"
 var camPort serial.Port
 var camReader *bufio.Reader
 var camScanner *bufio.Scanner
+var killSignal chan os.Signal
 
 func main() {
-	killSignal := make(chan os.Signal, 1)
+	killSignal = make(chan os.Signal, 1)
+	serialErrChan := make(chan bool)
 	signal.Notify(killSignal, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGSTOP, syscall.SIGQUIT)
 	mode := &serial.Mode{
 		BaudRate: 9600,
@@ -34,7 +36,7 @@ func main() {
 	camReader = bufio.NewReader(camPort)
 	camScanner = bufio.NewScanner(camReader)
 	camScanner.Split(AnySplit("\xFF"))
-	go serialRead(camScanner)
+	go serialRead(camScanner, serialErrChan)
 
 
 	var pan, oldpan int8 = 0,0
@@ -193,16 +195,24 @@ func main() {
 		}
 		log.Println("exiting final for loop")
 	}()
-	<-killSignal
+	select {
+		case <-killSignal:
+		case <-serialErrChan:
+	}
 	log.Println("exiting!")
 }
 
-func serialRead(scanner *bufio.Scanner) {
-	for {
+func serialRead(scanner *bufio.Scanner, serialErrChan chan bool) {
+	run := true
+	for (run) {
 		scanner.Scan()
-		fmt.Println("Camera Response: ", hex.Dump([]byte(scanner.Text())))
+		log.Println("Camera Response: ", hex.Dump([]byte(scanner.Text())))
+		if (nil != scanner.Err()) {
+			run = false
+		}
 	}
 	log.Println("exiting serial read goroutine")
+	serialErrChan<-true
 }
 
 func sendZoom(port serial.Port, cam byte, zoom int8) {
