@@ -382,6 +382,29 @@ func sendPanTilt(port serial.Port, cam byte, pan int8, tilt int8) {
 	}
 }
 
+func sendWhiteBalance(port serial.Port, cam byte, wbValue WhiteBalanceT) {
+	switch wbValue {
+		case wbAuto:
+			sendVisca(port, []byte{(0x80+cam), 0x01, 0x04, 0x35, 0x00, 0xFF})
+		case wbIndoor:
+			sendVisca(port, []byte{(0x80+cam), 0x01, 0x04, 0x35, 0x01, 0xFF})
+		case wbOutdoor:
+			sendVisca(port, []byte{(0x80+cam), 0x01, 0x04, 0x35, 0x02, 0xFF})
+		case wbOnePush:
+			sendVisca(port, []byte{(0x80+cam), 0x01, 0x04, 0x35, 0x03, 0xFF})
+		case wbManual:
+			sendVisca(port, []byte{(0x80+cam), 0x01, 0x04, 0x35, 0x05, 0xFF})
+		case wbOutdoorAuto:
+			sendVisca(port, []byte{(0x80+cam), 0x01, 0x04, 0x35, 0x06, 0xFF})
+		case wbSodiumLampAuto:
+			sendVisca(port, []byte{(0x80+cam), 0x01, 0x04, 0x35, 0x07, 0xFF})
+		case wbSodiumAuto:
+			sendVisca(port, []byte{(0x80+cam), 0x01, 0x04, 0x35, 0x08, 0xFF})
+		default:
+		// unknown white balance value
+	}
+}
+
 func sendVisca(port serial.Port, message []byte) {
 	n, err := port.Write(message)
 	log.Println(hex.Dump(message))
