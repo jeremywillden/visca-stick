@@ -41,6 +41,7 @@ const (
 )
 
 var loop1, loop2, loop3, loop4 uint8 = 0,0,0,0
+var slowPT, oldSlowPT, slowZ, oldSlowZ bool = false, false, false, false
 
 /*
 var TestState TestStateT
@@ -186,6 +187,8 @@ func main() {
 				pan = 0
 				oldpan = 0
 				sendPanTilt(camPort, 8, pan, tilt) // 8 is broadcast to all cameras
+				slowPT = false
+				slowZ = false
 			case <-b6press:
 				log.Println("button #6 pressed STOPPING ZOOM/FOCUS")
 				zoom = 0
@@ -194,6 +197,8 @@ func main() {
 				focus = 0
 				oldfocus = 0
 				sendFocus(camPort, 8, focus) // 8 is broadcast to all cameras
+				slowPT = false
+				slowZ = false
 			case <-b7press:
 				log.Println("button #7 pressed")
 			case <-b8press:
@@ -201,9 +206,11 @@ func main() {
 			case <-b9press:
 				log.Println("button #9 pressed")
 			case <-b10press:
-				log.Println("button #10 pressed")
+				log.Println("button #10 pressed SLOW PAN/TILT")
+				slowPT = true
 			case <-b11press:
-				log.Println("button #11 pressed")
+				slowZ = true
+				log.Println("button #11 pressed SLOW ZOOM")
 			case <-b1release:
 				log.Println("button #1 released")
 			case <-b2release:
@@ -213,9 +220,24 @@ func main() {
 			case <-b4release:
 				log.Println("button #4 released")
 			case <-b5release:
-				log.Println("button #5 released")
+				log.Println("button #5 released STOPPING PAN/TILT")
+				tilt = 0
+				oldtilt = 0
+				pan = 0
+				oldpan = 0
+				sendPanTilt(camPort, 8, pan, tilt) // 8 is broadcast to all cameras
+				slowPT = false
+				slowZ = false
 			case <-b6release:
-				log.Println("button #6 released")
+				log.Println("button #6 released STOPPING ZOOM/FOCUS")
+				zoom = 0
+				oldzoom = 0
+				sendZoom(camPort, 8, zoom) // 8 is broadcast to all cameras
+				focus = 0
+				oldfocus = 0
+				sendFocus(camPort, 8, focus) // 8 is broadcast to all cameras
+				slowPT = false
+				slowZ = false
 			case <-b7release:
 				log.Println("button #7 released")
 			case <-b8release:
@@ -223,9 +245,11 @@ func main() {
 			case <-b9release:
 				log.Println("button #9 released")
 			case <-b10release:
-				log.Println("button #10 released")
+				log.Println("button #10 released FAST PAN/TILT")
+				slowPT = false
 			case <-b11release:
-				log.Println("button #11 released")
+				log.Println("button #11 released FAST ZOOM")
+				slowZ = false
 			}
 		}
 		log.Println("exiting event capture goroutine")
@@ -243,17 +267,33 @@ func main() {
 			if(oldpan != pan) {
 				oldpan = pan
 				log.Println("Pan is now:", oldpan)
-				sendPanTilt(camPort, 8, pan, tilt) // 8 is broadcast to all cameras
+				sendPanTilt(camPort, 8, speedLimit(pan, slowPT), speedLimit(tilt, slowPT)) // 8 is broadcast to all cameras
 			}
 			if(oldtilt != tilt) {
 				oldtilt = tilt
 				log.Println("Tilt is now:", oldtilt)
-				sendPanTilt(camPort, 8, pan, tilt) // 8 is broadcast to all cameras
+				sendPanTilt(camPort, 8, speedLimit(pan, slowPT), speedLimit(tilt, slowPT)) // 8 is broadcast to all cameras
 			}
-			if(oldzoom != zoom) {
+			if(oldSlowPT != slowPT) {
+				oldSlowPT = slowPT
+				log.Println("Tilt speed change")
+				sendPanTilt(camPort, 8, speedLimit(pan, slowPT), speedLimit(tilt, slowPT)) // 8 is broadcast to all cameras
+			}
+			if((oldzoom != zoom) || (oldSlowZ != slowZ)) {
 				oldzoom = zoom
-				log.Println("Zoom is now:", oldzoom)
-				sendZoom(camPort, 8, zoom) // 8 is broadcast to all cameras
+				if(slowZ) {
+					log.Println("Zooming SLOWLY")
+					if(zoom>0) {
+						sendZoom(camPort, 8, 1) // 8 is broadcast to all cameras
+					} else if(zoom<0) {
+						sendZoom(camPort, 8, -1) // 8 is broadcast to all cameras
+					} else {
+						sendZoom(camPort, 8, 0) // 8 is broadcast to all cameras
+					}
+				} else {
+					log.Println("Zoom is now:", oldzoom)
+					sendZoom(camPort, 8, zoom) // 8 is broadcast to all cameras
+				}
 			}
 			if(oldfocus != focus) {
 				oldfocus = focus
@@ -445,6 +485,18 @@ func AnySplit(substring string) func(data []byte, atEOF bool) (advance int, toke
 		}
 		return
 	}
+}
+
+func speedLimit(speed int8, limited bool) (limitedspeed int8) {
+	if(limited) {
+		if(speed>0) {
+			return 1
+		} else if(speed<0) {
+			return -1
+		}
+	return 0
+	}
+	return speed
 }
 
 // Read Pan Tilt Position
