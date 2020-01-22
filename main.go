@@ -262,7 +262,7 @@ func main() {
 			// they are single-byte to avoid race issues
 			// only write them in the joystick routine
 			// read them here and watch for changes
-			log.Println("loop ", loop1, " ", loop2 , " ", loop3, " ", loop4)
+//			log.Println("loop ", loop1, " ", loop2 , " ", loop3, " ", loop4)
 			time.Sleep(time.Millisecond*125)
 			if(oldpan != pan) {
 				oldpan = pan
