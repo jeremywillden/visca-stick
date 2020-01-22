@@ -40,6 +40,8 @@ const (
 	wbSodiumAuto
 )
 
+var loop1, loop2, loop3, loop4 uint8 = 0,0,0,0
+
 /*
 var TestState TestStateT
 
@@ -140,6 +142,7 @@ func main() {
 	// handle event channels
 	go func() {
 		for {
+			loop1 = loop1 + 1
 			select {
                         case oe := <-jevent:
                                 if((0==oe.Index) && (0==oe.Type) && (0==oe.Value)) {
@@ -177,9 +180,20 @@ func main() {
 			case <-b4press:
 				log.Println("button #4 pressed")
 			case <-b5press:
-				log.Println("button #5 pressed")
+				log.Println("button #5 pressed STOPPING PAN/TILT")
+				tilt = 0
+				oldtilt = 0
+				pan = 0
+				oldpan = 0
+				sendPanTilt(camPort, 8, pan, tilt) // 8 is broadcast to all cameras
 			case <-b6press:
-				log.Println("button #6 pressed")
+				log.Println("button #6 pressed STOPPING ZOOM/FOCUS")
+				zoom = 0
+				oldzoom = 0
+				sendZoom(camPort, 8, zoom) // 8 is broadcast to all cameras
+				focus = 0
+				oldfocus = 0
+				sendFocus(camPort, 8, focus) // 8 is broadcast to all cameras
 			case <-b7press:
 				log.Println("button #7 pressed")
 			case <-b8press:
@@ -219,10 +233,12 @@ func main() {
 
 	go func() {
 		for {
+			loop2 = loop2 + 1
 			// take care with these shared variables!
 			// they are single-byte to avoid race issues
 			// only write them in the joystick routine
 			// read them here and watch for changes
+			log.Println("loop ", loop1, " ", loop2 , " ", loop3, " ", loop4)
 			time.Sleep(time.Millisecond*125)
 			if(oldpan != pan) {
 				oldpan = pan
@@ -258,6 +274,7 @@ func main() {
 func serialRead(scanner *bufio.Scanner, serialErrChan chan bool) {
 	run := true
 	for (run) {
+		loop3 = loop3 + 1
 		scanner.Scan()
 		log.Println("Camera Response: ", hex.Dump([]byte(scanner.Text())))
 		if (nil != scanner.Err()) {
