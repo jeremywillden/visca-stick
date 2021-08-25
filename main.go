@@ -1,11 +1,11 @@
 package main
 
-import "github.com/splace/joysticks"
+//import "github.com/splace/joysticks"
 import "log"
 import "strings"
 import "bufio"
 import "time"
-import "math"
+//import "math"
 //import "fmt"
 import "go.bug.st/serial.v1"
 import "go.bug.st/serial.v1/enumerator"
@@ -55,7 +55,7 @@ func nullState() error {
 func main() {
 	killSignal = make(chan os.Signal, 1)
 	serialErrChan := make(chan bool)
-	controllerDisconnectChan := make(chan bool)
+//	controllerDisconnectChan := make(chan bool)
 	signal.Notify(killSignal, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGSTOP, syscall.SIGQUIT)
 	mode := &serial.Mode{
 		BaudRate: 9600,
@@ -91,7 +91,7 @@ func main() {
 	// for reading responses back from the serial port (the 0xFF will be stripped)
 	camScanner.Split(AnySplit("\xFF"))
 	go serialRead(camScanner, serialErrChan)
-
+/*
 	var pan, oldpan int8 = 0,0
 	var tilt, oldtilt int8 = 0,0
 	var zoom, oldzoom int8 = 0,0
@@ -308,6 +308,10 @@ func main() {
 		case <-serialErrChan:
 		case <-controllerDisconnectChan:
 	}
+*/
+	gotoZoom(camPort, 8, 0)
+	gotoPanTilt(camPort, 8, 10, 10, 0, 0)
+	time.Sleep(1 * time.Second)
 	log.Println("exiting!")
 }
 
