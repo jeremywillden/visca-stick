@@ -309,8 +309,8 @@ func main() {
 		case <-controllerDisconnectChan:
 	}
 */
-	gotoZoom(camPort, 8, 0)
-	gotoPanTilt(camPort, 8, 10, 10, 0, 0)
+	gotoZoom(camPort, 8, 500)
+	gotoPanTilt(camPort, 8, 10, 10, 0, 65536-200)
 	time.Sleep(1 * time.Second)
 	log.Println("exiting!")
 }
@@ -342,9 +342,9 @@ func sendZoom(port serial.Port, cam byte, zoom int8) {
 func gotoZoom(port serial.Port, cam byte, zoom int16) {
 	// Direct zoom level command from 0x0 (wide) to 0x4000 (telephoto)
 	if((zoom>=0) && (zoom<=0x4000)) {
-		p := byte(0x0F & zoom >> 12)
-		q := byte(0x0F & zoom >> 8)
-		r := byte(0x0F & zoom >> 4)
+		p := byte(0x0F & (zoom >> 12))
+		q := byte(0x0F & (zoom >> 8))
+		r := byte(0x0F & (zoom >> 4))
 		s := byte(0x0F & zoom)
 		sendVisca(port, []byte{(0x80+cam), 0x01, 0x04, 0x47, p, q, r, s, 0xFF})
 	}
@@ -357,9 +357,9 @@ func stopZoom(port serial.Port, cam byte) {
 func gotoFocus(port serial.Port, cam byte, focus int16) {
 	// Direct focus level command, levels may not be specified, using the same as zoom
 	if((focus>=0) && (focus<=0x4000)) {
-		p := byte(0x0F & focus >> 12)
-		q := byte(0x0F & focus >> 8)
-		r := byte(0x0F & focus >> 4)
+		p := byte(0x0F & (focus >> 12))
+		q := byte(0x0F & (focus >> 8))
+		r := byte(0x0F & (focus >> 4))
 		s := byte(0x0F & focus)
 		sendVisca(port, []byte{(0x80+cam), 0x01, 0x04, 0x48, p, q, r, s, 0xFF})
 	}
