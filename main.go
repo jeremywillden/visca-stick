@@ -309,7 +309,7 @@ func main() {
 		case <-controllerDisconnectChan:
 	}
 */
-	gotoZoom(camPort, 8, 500)
+	gotoZoom(camPort, 8, 2000)
 	gotoPanTilt(camPort, 8, 10, 10, 0, 65536-200)
 	time.Sleep(1 * time.Second)
 	log.Println("exiting!")
