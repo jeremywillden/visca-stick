@@ -309,10 +309,24 @@ func main() {
 		case <-controllerDisconnectChan:
 	}
 */
-	gotoZoom(camPort, 8, 2000)
-	gotoPanTilt(camPort, 8, 10, 10, 0, 65536-200)
+	gotoMediumShot()
 	time.Sleep(1 * time.Second)
 	log.Println("exiting!")
+}
+
+func gotoWideShot () {
+	gotoZoom(camPort, 8, 2000)
+	gotoPanTilt(camPort, 8, 10, 10, 65536-6, 65536-200)
+}
+
+func gotoCloseShot () {
+	gotoZoom(camPort, 8, 12000)
+	gotoPanTilt(camPort, 8, 10, 10, 65536 - 6, 65536 - 110)
+}
+
+func gotoMediumShot () {
+	gotoZoom(camPort, 8, 5000)
+	gotoPanTilt(camPort, 8, 10, 10, 65536 - 6, 65536-120)
 }
 
 func serialRead(scanner *bufio.Scanner, serialErrChan chan bool) {
