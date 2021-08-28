@@ -309,7 +309,7 @@ func main() {
 		case <-controllerDisconnectChan:
 	}
 */
-	gotoChoirShot()
+	gotoCloseShot()
 	time.Sleep(1 * time.Second)
 	log.Println("exiting!")
 }
@@ -346,7 +346,7 @@ func gotoWideShot () {
 
 func gotoCloseShot () {
 	gotoZoom(camPort, 8, 12000)
-	gotoPanTilt(camPort, 8, 10, 10, 65536 - 6, 65536 - 110)
+	gotoPanTilt(camPort, 8, 10, 10, 65536 - 6, 65536 - 100)
 }
 
 func gotoMediumShot () {
