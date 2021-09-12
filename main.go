@@ -346,7 +346,7 @@ func gotoWideShot () {
 
 func gotoCloseShot () {
 	gotoZoom(camPort, 8, 12500)
-	gotoPanTilt(camPort, 8, 10, 10, 65536 - 6, 65536 - 90)
+	gotoPanTilt(camPort, 8, 10, 10, 65536 - 6, 65536 - 95)
 }
 
 func gotoCloseLeftShot () {
