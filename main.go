@@ -309,9 +309,14 @@ func main() {
 		case <-controllerDisconnectChan:
 	}
 */
-	gotoCloseRightShot()
+	gotoScreenShot()
 	time.Sleep(1 * time.Second)
 	log.Println("exiting!")
+}
+
+func gotoScreenShot () {
+	gotoZoom(camPort, 8, 11000)
+	gotoPanTilt(camPort, 8, 10, 10, 0, 20)
 }
 
 func gotoLeftShot () {
