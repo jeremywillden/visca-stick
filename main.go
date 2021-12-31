@@ -6,13 +6,14 @@ import "strings"
 import "bufio"
 import "time"
 //import "math"
-//import "fmt"
+import "fmt"
 import "go.bug.st/serial.v1"
-import "go.bug.st/serial.v1/enumerator"
+//import "go.bug.st/serial.v1/enumerator"
 import "encoding/hex"
 import "os/signal"
 import "syscall"
 import "os"
+import "net"
 
 var camPort serial.Port
 var camReader *bufio.Reader
@@ -52,45 +53,24 @@ func nullState() error {
 }
 */
 
+func testUDPsend() {
+	//udpbuf := make([]byte, 1024)
+	udpconn, err := net.Dial("udp", "192.168.110.110:52381")
+	if err != nil {
+		fmt.Printf("Got an error %v", err)
+		return
+	}
+	fmt.Fprintf(udpconn, "Test Message Sent")
+	//_, err = bufio.NewReader(conn).Read(udpbuf)
+	udpconn.Close()
+	return
+}
+
 func main() {
 	killSignal = make(chan os.Signal, 1)
-	serialErrChan := make(chan bool)
 //	controllerDisconnectChan := make(chan bool)
 	signal.Notify(killSignal, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGSTOP, syscall.SIGQUIT)
-	mode := &serial.Mode{
-		BaudRate: 9600,
-		Parity: serial.NoParity,
-		DataBits: 8,
-		StopBits: serial.OneStopBit,
-	}
 
-	serialPortList, err := enumerator.GetDetailedPortsList()
-	if err != nil {
-		log.Fatal("Error while listing serial ports", err)
-	}
-	if len(serialPortList) == 0 {
-		log.Fatal("Can't find any serial ports", err)
-	}
-	foundOne := false
-	for _, oneSerialPort := range serialPortList {
-		log.Println("Found serial port", oneSerialPort.Name, "serial number", oneSerialPort.SerialNumber)
-		if (oneSerialPort.IsUSB && !foundOne) {
-			foundOne = true
-			camPort, err = serial.Open(oneSerialPort.Name, mode)
-			if err != nil {
-				log.Fatal(err)
-			}
-		}
-	}
-	if nil == camPort {
-		log.Fatal("No USB serial ports found to control the camera")
-	}
-	camReader = bufio.NewReader(camPort)
-	camScanner = bufio.NewScanner(camReader)
-	// Visca messages end in 0xFF, so use that as the termination character
-	// for reading responses back from the serial port (the 0xFF will be stripped)
-	camScanner.Split(AnySplit("\xFF"))
-	go serialRead(camScanner, serialErrChan)
 /*
 	var pan, oldpan int8 = 0,0
 	var tilt, oldtilt int8 = 0,0
@@ -542,12 +522,21 @@ func sendWhiteBalance(port serial.Port, cam byte, wbValue WhiteBalanceT) {
 }
 
 func sendVisca(port serial.Port, message []byte) {
+	udpconn, err := net.Dial("udp", "192.168.110.110:1259")
+	if err != nil {
+		log.Fatal("Got an error %v", err)
+	}
+	udpconn.Write(message)
+	udpconn.Close()
+	return
+/*
 	n, err := port.Write(message)
 	log.Println(hex.Dump(message))
 	_ = n
 	if err != nil {
 		log.Fatal(err)
 	}
+*/
 }
 
 func AnySplit(substring string) func(data []byte, atEOF bool) (advance int, token []byte, err error) {
