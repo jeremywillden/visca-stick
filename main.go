@@ -289,84 +289,84 @@ func main() {
 		case <-controllerDisconnectChan:
 	}
 */
-	gotoMediumCloseShot()
-	time.Sleep(1 * time.Second)
+	gotoCloseShot()
+	time.Sleep(100 * time.Millisecond)
 	log.Println("exiting!")
 }
 
-func gotoWideScreenShot () {
-	gotoZoom(camPort, 8, 2000)
-	gotoPanTilt(camPort, 8, 10, 10, 65536-3, 65536-80)
+func gotoWideShot () {
+	gotoZoom(camPort, 8, 1000)
+	gotoPanTilt(camPort, 8, 10, 10, 65536 - 980, 65536 - 180)
 }
 
-func gotoScreenShot () {
-	gotoZoom(camPort, 8, 11000)
-	gotoPanTilt(camPort, 8, 10, 10, 65536-3, 20)
+func gotoCloseShot () {
+	gotoZoom(camPort, 8, 12500)
+	gotoPanTilt(camPort, 8, 10, 10, 65536 - 982, 65536 - 123)
 }
 
 func gotoLeftShot () {
-	gotoZoom(camPort, 8, 6500)
-	gotoPanTilt(camPort, 8, 10, 10, 65536-100, 65536-140)
+	gotoZoom(camPort, 8, 8000)
+	gotoPanTilt(camPort, 8, 10, 10, 65536 - 1100, 65536 - 123)
 }
 
-func gotoTempShot () {
+func gotoTempShot () { // TODO: Adjust
 	gotoZoom(camPort, 8, 14500)
 	gotoPanTilt(camPort, 8, 10, 10, 65536-97, 65536-132)
 }
 
 func gotoRightShot () {
-	gotoZoom(camPort, 8, 6500)
-	gotoPanTilt(camPort, 8, 10, 10, 105, 65536-140)
+	gotoZoom(camPort, 8, 8000)
+	gotoPanTilt(camPort, 8, 10, 10, 65536 - 860, 65536 - 123)
 }
 
 func gotoPianoShot () {
 	gotoZoom(camPort, 8, 12000)
-	gotoPanTilt(camPort, 8, 10, 10, 65536-170, 65536 - 90)
+	gotoPanTilt(camPort, 8, 10, 10, 65536 - 1302, 65536 - 100)
 }
 
 func gotoDirectorShot () {
-	gotoZoom(camPort, 8, 11000)
-	gotoPanTilt(camPort, 8, 10, 10, 150, 65536 - 90)
+	gotoZoom(camPort, 8, 12000)
+	gotoPanTilt(camPort, 8, 10, 10, 65536 - 950, 65536 - 90)
 }
 
 func gotoOrganShot () {
 	gotoZoom(camPort, 8, 12000)
-	gotoPanTilt(camPort, 8, 10, 10, 170, 65536 - 90)
+	gotoPanTilt(camPort, 8, 10, 10, 65536 - 915, 65536 - 100)
 }
 
-func gotoWideShot () {
-	gotoZoom(camPort, 8, 2000)
-	gotoPanTilt(camPort, 8, 10, 10, 65536-6, 65536-200)
-}
-
-func gotoCloseShot () {
-	gotoZoom(camPort, 8, 12500)
-	gotoPanTilt(camPort, 8, 10, 10, 65536 - 6, 65536 - 95)
-}
-
-func gotoCloseLeftShot () {
+func gotoCloseLeftShot () { // TODO: Adjust
 	gotoZoom(camPort, 8, 13000)
 	gotoPanTilt(camPort, 8, 10, 10, 65536 - 26, 65536 - 95)
 }
 
-func gotoCloseRightShot () {
+func gotoCloseRightShot () { // TODO: Adjust
 	gotoZoom(camPort, 8, 13000)
 	gotoPanTilt(camPort, 8, 10, 10, 14, 65536 - 95)
 }
 
 func gotoMediumShot () {
 	gotoZoom(camPort, 8, 5000)
-	gotoPanTilt(camPort, 8, 10, 10, 65536 - 6, 65536-120)
+	gotoPanTilt(camPort, 8, 10, 10, 65536 - 980, 65536 - 127)
 }
 
-func gotoMediumCloseShot () {
+func gotoMediumCloseShot () { // TODO: Adjust
 	gotoZoom(camPort, 8, 10500)
 	gotoPanTilt(camPort, 8, 10, 10, 65536 - 6, 65536 - 95)
 }
 
 func gotoChoirShot () {
-	gotoZoom(camPort, 8, 9000)
-	gotoPanTilt(camPort, 8, 10, 10, 65536 - 6, 65536-70)
+	gotoZoom(camPort, 8, 7000)
+	gotoPanTilt(camPort, 8, 10, 10, 65536 - 1060, 65536 - 100)
+}
+
+func gotoWideScreenShot () { // TODO: Adjust
+	gotoZoom(camPort, 8, 2000)
+	gotoPanTilt(camPort, 8, 10, 10, 65536-3, 65536-80)
+}
+
+func gotoScreenShot () { // TODO: Adjust
+	gotoZoom(camPort, 8, 11000)
+	gotoPanTilt(camPort, 8, 10, 10, 65536-3, 20)
 }
 
 func serialRead(scanner *bufio.Scanner, serialErrChan chan bool) {
