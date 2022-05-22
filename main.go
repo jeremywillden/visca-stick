@@ -1,11 +1,11 @@
 package main
 
-//import "github.com/splace/joysticks"
+import "github.com/splace/joysticks"
 import "log"
 import "strings"
 import "bufio"
 import "time"
-//import "math"
+import "math"
 import "fmt"
 import "go.bug.st/serial.v1"
 //import "go.bug.st/serial.v1/enumerator"
@@ -15,6 +15,8 @@ import "syscall"
 import "os"
 import "net"
 
+var netAddr = "192.168.110.110"
+var netPort = "1259" // "52381"
 var camPort serial.Port
 var camReader *bufio.Reader
 var camScanner *bufio.Scanner
@@ -55,7 +57,7 @@ func nullState() error {
 
 func testUDPsend() {
 	//udpbuf := make([]byte, 1024)
-	udpconn, err := net.Dial("udp", "192.168.110.110:52381")
+	udpconn, err := net.Dial("udp", netAddr+":"+netPort)
 	if err != nil {
 		fmt.Printf("Got an error %v", err)
 		return
@@ -68,10 +70,9 @@ func testUDPsend() {
 
 func main() {
 	killSignal = make(chan os.Signal, 1)
-//	controllerDisconnectChan := make(chan bool)
+	controllerDisconnectChan := make(chan bool)
 	signal.Notify(killSignal, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGSTOP, syscall.SIGQUIT)
 
-/*
 	var pan, oldpan int8 = 0,0
 	var tilt, oldtilt int8 = 0,0
 	var zoom, oldzoom int8 = 0,0
@@ -285,12 +286,12 @@ func main() {
 	}()
 	select {
 		case <-killSignal:
-		case <-serialErrChan:
+//		case <-serialErrChan:
 		case <-controllerDisconnectChan:
 	}
-*/
-	gotoCloseShot()
-	time.Sleep(100 * time.Millisecond)
+
+/*	gotoCloseShot()
+	time.Sleep(100 * time.Millisecond) */
 	log.Println("exiting!")
 }
 
@@ -522,7 +523,7 @@ func sendWhiteBalance(port serial.Port, cam byte, wbValue WhiteBalanceT) {
 }
 
 func sendVisca(port serial.Port, message []byte) {
-	udpconn, err := net.Dial("udp", "192.168.110.110:1259")
+	udpconn, err := net.Dial("udp", netAddr+":"+netPort)
 	if err != nil {
 		log.Fatal("Got an error %v", err)
 	}
