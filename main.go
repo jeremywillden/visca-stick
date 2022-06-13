@@ -123,7 +123,7 @@ func main() {
                                 }
 			case h1 := <-h1move:
 				hpos:=h1.(joysticks.CoordsEvent)
-				//log.Println("Pos: ", hpos.X, "x, ", hpos.Y, "y")
+				log.Println("Pos: ", hpos.X, "x, ", hpos.Y, "y")
 				if(pan != int8(math.Floor(float64(24*hpos.X)))) {
 					pan = int8(math.Floor(float64(24*hpos.X)))
 				}
@@ -152,22 +152,19 @@ func main() {
 			case <-b4press:
 				log.Println("button #4 pressed")
 			case <-b5press:
-				log.Println("button #5 pressed STOPPING PAN/TILT")
+				log.Println("button #5 pressed SLOW PAN/TILT/ZOOM")
+				slowPT = true
+				slowZ = true
+			case <-b6press:
+				log.Println("button #6 pressed STOPPING PAN/TILT/ZOOM")
 				tilt = 0
 				oldtilt = 0
 				pan = 0
 				oldpan = 0
 				sendPanTilt(cameraSendChan, 8, pan, tilt) // 8 is broadcast to all cameras
-				slowPT = false
-				slowZ = false
-			case <-b6press:
-				log.Println("button #6 pressed STOPPING ZOOM/FOCUS")
 				zoom = 0
 				oldzoom = 0
 				sendZoom(cameraSendChan, 8, zoom) // 8 is broadcast to all cameras
-				focus = 0
-				oldfocus = 0
-				sendFocus(cameraSendChan, 8, focus) // 8 is broadcast to all cameras
 				slowPT = false
 				slowZ = false
 			case <-b7press:
@@ -177,11 +174,9 @@ func main() {
 			case <-b9press:
 				log.Println("button #9 pressed")
 			case <-b10press:
-				log.Println("button #10 pressed SLOW PAN/TILT")
-				slowPT = true
+				log.Println("button #10 pressed")
 			case <-b11press:
-				slowZ = true
-				log.Println("button #11 pressed SLOW ZOOM")
+				log.Println("button #11 pressed")
 			case <-b1release:
 				log.Println("button #1 released")
 			case <-b2release:
@@ -191,22 +186,27 @@ func main() {
 			case <-b4release:
 				log.Println("button #4 released")
 			case <-b5release:
-				log.Println("button #5 released STOPPING PAN/TILT")
+				log.Println("button #5 released STOPPING PAN/TILT/ZOOM")
 				tilt = 0
 				oldtilt = 0
 				pan = 0
 				oldpan = 0
 				sendPanTilt(cameraSendChan, 8, pan, tilt) // 8 is broadcast to all cameras
-				slowPT = false
-				slowZ = false
-			case <-b6release:
-				log.Println("button #6 released STOPPING ZOOM/FOCUS")
 				zoom = 0
 				oldzoom = 0
 				sendZoom(cameraSendChan, 8, zoom) // 8 is broadcast to all cameras
-				focus = 0
-				oldfocus = 0
-				sendFocus(cameraSendChan, 8, focus) // 8 is broadcast to all cameras
+				slowPT = false
+				slowZ = false
+			case <-b6release:
+				log.Println("button #6 released STOPPING PAN/TILT/ZOOM")
+				tilt = 0
+				oldtilt = 0
+				pan = 0
+				oldpan = 0
+				sendPanTilt(cameraSendChan, 8, pan, tilt) // 8 is broadcast to all cameras
+				zoom = 0
+				oldzoom = 0
+				sendZoom(cameraSendChan, 8, zoom) // 8 is broadcast to all cameras
 				slowPT = false
 				slowZ = false
 			case <-b7release:
@@ -216,11 +216,9 @@ func main() {
 			case <-b9release:
 				log.Println("button #9 released")
 			case <-b10release:
-				log.Println("button #10 released FAST PAN/TILT")
-				slowPT = false
+				log.Println("button #10 released")
 			case <-b11release:
-				log.Println("button #11 released FAST ZOOM")
-				slowZ = false
+				log.Println("button #11 released")
 			}
 		}
 		log.Println("exiting event capture goroutine")
@@ -251,17 +249,17 @@ func main() {
 			if(oldpan != pan) {
 				oldpan = pan
 				log.Println("Pan is now:", oldpan)
-				sendPanTilt(cameraSendChan, 8, speedLimit(pan, slowPT), speedLimit(tilt, slowPT)) // 8 is broadcast to all cameras
+				sendPanTilt(cameraSendChan, 8, speedLimit(deadBand(pan), slowPT), speedLimit(deadBand(tilt), slowPT)) // 8 is broadcast to all cameras
 			}
 			if(oldtilt != tilt) {
 				oldtilt = tilt
 				log.Println("Tilt is now:", oldtilt)
-				sendPanTilt(cameraSendChan, 8, speedLimit(pan, slowPT), speedLimit(tilt, slowPT)) // 8 is broadcast to all cameras
+				sendPanTilt(cameraSendChan, 8, speedLimit(deadBand(pan), slowPT), speedLimit(deadBand(tilt), slowPT)) // 8 is broadcast to all cameras
 			}
 			if(oldSlowPT != slowPT) {
 				oldSlowPT = slowPT
 				log.Println("Tilt speed change")
-				sendPanTilt(cameraSendChan, 8, speedLimit(pan, slowPT), speedLimit(tilt, slowPT)) // 8 is broadcast to all cameras
+				sendPanTilt(cameraSendChan, 8, speedLimit(deadBand(pan), slowPT), speedLimit(deadBand(tilt), slowPT)) // 8 is broadcast to all cameras
 			}
 			if((oldzoom != zoom) || (oldSlowZ != slowZ)) {
 				oldzoom = zoom
@@ -597,6 +595,17 @@ func speedLimit(speed int8, limited bool) (limitedspeed int8) {
 	return 0
 	}
 	return speed
+}
+
+func deadBand(speed int8) (deadBandedSpeed int8) {
+	if ((speed <= 1) && (speed >= -1)) {
+		return 0
+	}
+	if (speed < -1) {
+		return speed + 1
+	} else {
+		return speed - 1
+	}
 }
 
 // Read Pan Tilt Position
