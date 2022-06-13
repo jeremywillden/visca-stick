@@ -3,7 +3,7 @@ package main
 import "github.com/splace/joysticks"
 import "log"
 import "strings"
-import "strconv"
+//import "strconv"
 import "bufio"
 import "time"
 import "math"
@@ -235,7 +235,8 @@ func main() {
 			// read them here and watch for changes
 			//log.Println("loop ", loop1, " ", loop2 , " ", loop3, " ", loop4)
 			time.Sleep(time.Millisecond*125)
-			hatcoordinates := make([]float32, 4)
+// this test code creates a race condition-induced crash, so it's helpful only to see what the values are in real time
+/*			hatcoordinates := make([]float32, 4)
 			for hatnum:=0; hatnum < 4; hatnum++ {
 				if device.HatExists(uint8(hatnum)) {
 					log.Println("Hat number: ", strconv.Itoa(hatnum))
@@ -243,6 +244,10 @@ func main() {
 					log.Println("Hat Coordinates: ", hatcoordinates)
 				}
 			}
+			device.HatCoords(1, hatcoordinates)
+			log.Println("Hat 1 Coordinates: ", hatcoordinates)
+			device.HatCoords(3, hatcoordinates)
+			log.Println("Hat 3 Coordinates: ", hatcoordinates) */
 			if(oldpan != pan) {
 				oldpan = pan
 				log.Println("Pan is now:", oldpan)
