@@ -628,6 +628,26 @@ func viscaDecode(rxmsg []byte) (decResp string) {
 			return "Camera inquiry response: " + hex.Dump(rxmsg)
 		}
 	}
+	if 0x60 == (0xF0 & rxmsg[1]) {
+		if 1 == rxmsg[2] {
+			return "ERROR: Bad Message Length"
+		}
+		if 2 == rxmsg[2] {
+			return "ERROR: Bad Message Syntax"
+		}
+		if 3 == rxmsg[2] {
+			return "ERROR: Command Buffer Full"
+		}
+		if 4 == rxmsg[2] {
+			return "ERROR: Command Canceled"
+		}
+		if 5 == rxmsg[2] {
+			return "ERROR: No Socket"
+		}
+		if 0x41 == rxmsg[2] {
+			return "ERROR: Command Not Executable"
+		}
+	}
 	return "unknown response type, raw: " + hex.Dump(rxmsg)
 }
 
