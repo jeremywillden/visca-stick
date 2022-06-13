@@ -3,7 +3,7 @@ package main
 import "github.com/splace/joysticks"
 import "log"
 import "strings"
-//import "strconv"
+import "strconv"
 //import "bufio"
 import "time"
 import "math"
@@ -170,7 +170,8 @@ func main() {
 			case <-b7press:
 				log.Println("button #7 pressed")
 			case <-b8press:
-				log.Println("button #8 pressed")
+				log.Println("button #8 pressed, requesting current Pan/Tilt values")
+				getPanTilt(cameraSendChan, 8)
 			case <-b9press:
 				log.Println("button #9 pressed")
 			case <-b10press:
@@ -443,6 +444,11 @@ func sendZoom(cameraSendChan chan<- []byte, cam byte, zoom int8) {
 	}
 }
 
+func getPanTilt(cameraSendChan chan<- []byte, cam byte) {
+//	0x8x 0x09 0x06 0x12 0xFF (query)
+	sendVisca(cameraSendChan, []byte{(0x80+cam), 0x09, 0x06, 0x12, 0xFF})
+}
+
 func gotoZoom(cameraSendChan chan<- []byte, cam byte, zoom int16) {
 	// Direct zoom level command from 0x0 (wide) to 0x4000 (telephoto)
 	if((zoom>=0) && (zoom<=0x4000)) {
@@ -625,6 +631,23 @@ func viscaDecode(rxmsg []byte) (decResp string) {
 		if 3 == len(rxmsg) {
 			return "Camera command COMPLETED"
 		} else {
+			if 11 == len(rxmsg) { // probably a response to the request for pan/tilt position
+				oredbytes := byte(0)
+				for bytepos:=2; bytepos<10; bytepos++ {
+					oredbytes |= rxmsg[bytepos]
+				}
+				if (0 == (0xF0 & oredbytes)) {
+					pan := int(rxmsg[2]) * 4096 + int(rxmsg[3]) * 256 + int(rxmsg[4]) * 16 + int(rxmsg[5])
+					if pan >= 32768 {
+						pan = pan - 65536
+					}
+					tilt := int(rxmsg[6]) * 4096 + int(rxmsg[7]) * 256 + int(rxmsg[8]) * 16 + int(rxmsg[9])
+					if tilt >= 32768 {
+						tilt = tilt - 65536
+					}
+					return "Pan position: " + strconv.Itoa(pan) + " and Tilt position: " + strconv.Itoa(tilt)
+				}
+			}
 			return "Camera inquiry response: " + hex.Dump(rxmsg)
 		}
 	}
