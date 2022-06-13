@@ -674,7 +674,7 @@ func viscaDecode(rxmsg []byte) (decResp string) {
 func glueNibblesToInt(nibbles []byte) (gluedInt int) {
 	var gluedInt32 int32
 	slicedNibbles := []byte{0,0,0,0} // decode VISCA bytes broken into nibbles
-	if((0x08 & nibbles[0]) > 0) {
+	if((0x08 & nibbles[0]) > 0) { // sign extension
 		slicedNibbles[0] = 0xFF
 		slicedNibbles[1] = 0xFF
 	}
