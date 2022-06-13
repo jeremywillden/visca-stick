@@ -152,11 +152,7 @@ func main() {
 			case <-b4press:
 				log.Println("button #4 pressed")
 			case <-b5press:
-				log.Println("button #5 pressed SLOW PAN/TILT/ZOOM")
-				slowPT = true
-				slowZ = true
-			case <-b6press:
-				log.Println("button #6 pressed STOPPING PAN/TILT/ZOOM")
+				log.Println("button #5 pressed STOPPING PAN/TILT/ZOOM")
 				tilt = 0
 				oldtilt = 0
 				pan = 0
@@ -167,6 +163,10 @@ func main() {
 				sendZoom(cameraSendChan, 8, zoom) // 8 is broadcast to all cameras
 				slowPT = false
 				slowZ = false
+			case <-b6press:
+				log.Println("button #6 pressed SLOW PAN/TILT/ZOOM")
+				slowPT = true
+				slowZ = true
 			case <-b7press:
 				log.Println("button #7 pressed")
 			case <-b8press:
@@ -263,6 +263,7 @@ func main() {
 			}
 			if((oldzoom != zoom) || (oldSlowZ != slowZ)) {
 				oldzoom = zoom
+				oldSlowZ = slowZ
 				if(slowZ) {
 					log.Println("Zooming SLOWLY")
 					if(zoom>0) {
@@ -298,7 +299,7 @@ func main() {
 			mainrun = false
 			log.Println("USB joystick disconnect error!")
 		case rxmsg := <-cameraReceiveChan:
-			log.Println("Camera Response: ", hex.Dump(rxmsg))
+			log.Println("Camera Response: ", viscaDecode(rxmsg))
 	}
 }
 
@@ -611,6 +612,23 @@ func deadBand(speed int8) (deadBandedSpeed int8) {
 	} else {
 		return speed - 1
 	}
+}
+
+func viscaDecode(rxmsg []byte) (decResp string) {
+	if 0xFF != rxmsg[len(rxmsg)-1] {
+		return "INVALID! VISCA messages must end with 0xFF, not " + fmt.Sprintf("%02x",rxmsg[len(rxmsg)-1])
+	}
+	if 0x40 == (0xF0 & rxmsg[1]) {
+		return "Camera ACK"
+	}
+	if 0x50 == (0xF0 & rxmsg[1]) {
+		if 3 == len(rxmsg) {
+			return "Camera command COMPLETED"
+		} else {
+			return "Camera inquiry response: " + hex.Dump(rxmsg)
+		}
+	}
+	return "unknown response type, raw: " + hex.Dump(rxmsg)
 }
 
 // Read Pan Tilt Position
