@@ -17,9 +17,7 @@ import "net"
 
 var netAddr = "192.168.110.110"
 var netPort = "1259" // "52381"
-var camPort serial.Port
-var camReader *bufio.Reader
-var camScanner *bufio.Scanner
+//var camPort serial.Port
 var killSignal chan os.Signal
 
 // must install:
@@ -55,23 +53,15 @@ func nullState() error {
 }
 */
 
-func testUDPsend() {
-	//udpbuf := make([]byte, 1024)
-	udpconn, err := net.Dial("udp", netAddr+":"+netPort)
-	if err != nil {
-		fmt.Printf("Got an error %v", err)
-		return
-	}
-	fmt.Fprintf(udpconn, "Test Message Sent")
-	//_, err = bufio.NewReader(conn).Read(udpbuf)
-	udpconn.Close()
-	return
-}
-
 func main() {
 	killSignal = make(chan os.Signal, 1)
+	cameraErrChan := make(chan bool)
+	cameraSendChan := make(chan []byte)
+	cameraReceiveChan := make(chan []byte)
 	controllerDisconnectChan := make(chan bool)
 	signal.Notify(killSignal, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGSTOP, syscall.SIGQUIT)
+
+	go cameraComm(cameraSendChan, cameraReceiveChan, cameraErrChan)
 
 	var pan, oldpan int8 = 0,0
 	var tilt, oldtilt int8 = 0,0
@@ -167,17 +157,17 @@ func main() {
 				oldtilt = 0
 				pan = 0
 				oldpan = 0
-				sendPanTilt(camPort, 8, pan, tilt) // 8 is broadcast to all cameras
+//				sendPanTilt(camPort, 8, pan, tilt) // 8 is broadcast to all cameras
 				slowPT = false
 				slowZ = false
 			case <-b6press:
 				log.Println("button #6 pressed STOPPING ZOOM/FOCUS")
 				zoom = 0
 				oldzoom = 0
-				sendZoom(camPort, 8, zoom) // 8 is broadcast to all cameras
+//				sendZoom(camPort, 8, zoom) // 8 is broadcast to all cameras
 				focus = 0
 				oldfocus = 0
-				sendFocus(camPort, 8, focus) // 8 is broadcast to all cameras
+//				sendFocus(camPort, 8, focus) // 8 is broadcast to all cameras
 				slowPT = false
 				slowZ = false
 			case <-b7press:
@@ -206,17 +196,17 @@ func main() {
 				oldtilt = 0
 				pan = 0
 				oldpan = 0
-				sendPanTilt(camPort, 8, pan, tilt) // 8 is broadcast to all cameras
+//				sendPanTilt(camPort, 8, pan, tilt) // 8 is broadcast to all cameras
 				slowPT = false
 				slowZ = false
 			case <-b6release:
 				log.Println("button #6 released STOPPING ZOOM/FOCUS")
 				zoom = 0
 				oldzoom = 0
-				sendZoom(camPort, 8, zoom) // 8 is broadcast to all cameras
+//				sendZoom(camPort, 8, zoom) // 8 is broadcast to all cameras
 				focus = 0
 				oldfocus = 0
-				sendFocus(camPort, 8, focus) // 8 is broadcast to all cameras
+//				sendFocus(camPort, 8, focus) // 8 is broadcast to all cameras
 				slowPT = false
 				slowZ = false
 			case <-b7release:
@@ -248,53 +238,56 @@ func main() {
 			if(oldpan != pan) {
 				oldpan = pan
 				log.Println("Pan is now:", oldpan)
-				sendPanTilt(camPort, 8, speedLimit(pan, slowPT), speedLimit(tilt, slowPT)) // 8 is broadcast to all cameras
+//				sendPanTilt(camPort, 8, speedLimit(pan, slowPT), speedLimit(tilt, slowPT)) // 8 is broadcast to all cameras
 			}
 			if(oldtilt != tilt) {
 				oldtilt = tilt
 				log.Println("Tilt is now:", oldtilt)
-				sendPanTilt(camPort, 8, speedLimit(pan, slowPT), speedLimit(tilt, slowPT)) // 8 is broadcast to all cameras
+//				sendPanTilt(camPort, 8, speedLimit(pan, slowPT), speedLimit(tilt, slowPT)) // 8 is broadcast to all cameras
 			}
 			if(oldSlowPT != slowPT) {
 				oldSlowPT = slowPT
 				log.Println("Tilt speed change")
-				sendPanTilt(camPort, 8, speedLimit(pan, slowPT), speedLimit(tilt, slowPT)) // 8 is broadcast to all cameras
+//				sendPanTilt(camPort, 8, speedLimit(pan, slowPT), speedLimit(tilt, slowPT)) // 8 is broadcast to all cameras
 			}
 			if((oldzoom != zoom) || (oldSlowZ != slowZ)) {
 				oldzoom = zoom
 				if(slowZ) {
 					log.Println("Zooming SLOWLY")
 					if(zoom>0) {
-						sendZoom(camPort, 8, 1) // 8 is broadcast to all cameras
+//						sendZoom(camPort, 8, 1) // 8 is broadcast to all cameras
 					} else if(zoom<0) {
-						sendZoom(camPort, 8, -1) // 8 is broadcast to all cameras
+//						sendZoom(camPort, 8, -1) // 8 is broadcast to all cameras
 					} else {
-						sendZoom(camPort, 8, 0) // 8 is broadcast to all cameras
+//						sendZoom(camPort, 8, 0) // 8 is broadcast to all cameras
 					}
 				} else {
 					log.Println("Zoom is now:", oldzoom)
-					sendZoom(camPort, 8, zoom) // 8 is broadcast to all cameras
+//					sendZoom(camPort, 8, zoom) // 8 is broadcast to all cameras
 				}
 			}
 			if(oldfocus != focus) {
 				oldfocus = focus
 				log.Println("Focus is now:", oldfocus)
-				sendFocus(camPort, 8, focus) // 8 is broadcast to all cameras
+//				sendFocus(camPort, 8, focus) // 8 is broadcast to all cameras
 			}
 		}
 		log.Println("exiting final for loop")
 	}()
 	select {
 		case <-killSignal:
-//		case <-serialErrChan:
+			log.Println("got kill signal!")
+		case <-cameraErrChan:
+			log.Println("camera communication error!")
 		case <-controllerDisconnectChan:
+			log.Println("USB joystick disconnect error!")
 	}
 
 /*	gotoCloseShot()
 	time.Sleep(100 * time.Millisecond) */
 	log.Println("exiting!")
 }
-
+/*
 func gotoWideShot () {
 	gotoZoom(camPort, 8, 1000)
 	gotoPanTilt(camPort, 8, 10, 10, 65536 - 980, 65536 - 180)
@@ -369,20 +362,59 @@ func gotoScreenShot () { // TODO: Adjust
 	gotoZoom(camPort, 8, 11000)
 	gotoPanTilt(camPort, 8, 10, 10, 65536-3, 20)
 }
+*/
+func cameraComm(cameraSendChan <-chan []byte, cameraReceiveChan chan<- []byte, cameraErrChan chan<- bool) {
+	udpbuf := make([]byte, 2048)
+	udpconn, err := net.Dial("udp", netAddr+":"+netPort)
+	if err != nil {
+		fmt.Printf("Got an error opening the UDP port %v", err)
+		cameraErrChan <- true
+	}
+	defer udpconn.Close()
+	// cameraSendChan are bytes sent TO the camera over the network or port
+	// cameraReceiveChan are bytes received back from the camera
+	var camReader *bufio.Reader
+	var camScanner *bufio.Scanner
+	camReader = bufio.NewReader(udpconn)
+	camScanner = bufio.NewScanner(camReader)
+	// Visca messages end in 0xFF, so use that as the termination character
+	// for reading responses back from the serial port (the 0xFF will be stripped)
+	camScanner.Split(AnySplit("\xFF"))
+	go cameraRead(camScanner, cameraReceiveChan, cameraErrChan)
+	for (true) {
+		select {
+		case txmsg := <-cameraSendChan:
+			_, err := fmt.Fprintf(udpconn, "%s", txmsg) // _ throws away byte count written from Fprintf
+			if nil != err {
+				log.Println("error when sending message: " + err.Error())
+			} else {
+				log.Println("message sent: " + string(txmsg))
+			}
+		}
+	}
+}
 
-func serialRead(scanner *bufio.Scanner, serialErrChan chan bool) {
+func cameraRead(scanner *bufio.Scanner, cameraReceiveChan chan<- []byte, cameraErrChan chan<- bool) {
 	run := true
 	for (run) {
 		loop3 = loop3 + 1
 		scanner.Scan()
-		log.Println("Camera Response: ", hex.Dump([]byte(scanner.Text())))
-		if (nil != scanner.Err()) {
+		readbytes := []byte(scanner.Text())
+		log.Println("Camera Response: ", hex.Dump(readbytes))
+		cameraReceiveChan <- readbytes
+		scanerror := scanner.Err()
+		if (nil != scanerror) {
 			run = false
+			log.Print(scanerror)
 		}
 	}
 	log.Println("exiting serial read goroutine")
-	serialErrChan<-true
+	cameraErrChan<-true
 }
+
+/*func cameraWrite() {
+	return
+}*/
 
 func sendZoom(port serial.Port, cam byte, zoom int8) {
 	if((zoom>0) && (zoom<=7)) {
@@ -523,21 +555,12 @@ func sendWhiteBalance(port serial.Port, cam byte, wbValue WhiteBalanceT) {
 }
 
 func sendVisca(port serial.Port, message []byte) {
-	udpconn, err := net.Dial("udp", netAddr+":"+netPort)
-	if err != nil {
-		log.Fatal("Got an error %v", err)
-	}
-	udpconn.Write(message)
-	udpconn.Close()
-	return
-/*
 	n, err := port.Write(message)
 	log.Println(hex.Dump(message))
 	_ = n
 	if err != nil {
 		log.Fatal(err)
 	}
-*/
 }
 
 func AnySplit(substring string) func(data []byte, atEOF bool) (advance int, token []byte, err error) {
