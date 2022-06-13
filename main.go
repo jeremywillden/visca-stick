@@ -3,6 +3,7 @@ package main
 import "github.com/splace/joysticks"
 import "log"
 import "strings"
+import "strconv"
 import "bufio"
 import "time"
 import "math"
@@ -234,6 +235,14 @@ func main() {
 			// read them here and watch for changes
 			//log.Println("loop ", loop1, " ", loop2 , " ", loop3, " ", loop4)
 			time.Sleep(time.Millisecond*125)
+			hatcoordinates := make([]float32, 4)
+			for hatnum:=0; hatnum < 4; hatnum++ {
+				if device.HatExists(uint8(hatnum)) {
+					log.Println("Hat number: ", strconv.Itoa(hatnum))
+					device.HatCoords(uint8(hatnum), hatcoordinates) // 3 is right hat vertical axis
+					log.Println("Hat Coordinates: ", hatcoordinates)
+				}
+			}
 			if(oldpan != pan) {
 				oldpan = pan
 				log.Println("Pan is now:", oldpan)
