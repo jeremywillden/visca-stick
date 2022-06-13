@@ -15,6 +15,8 @@ import "os/signal"
 import "syscall"
 import "os"
 import "net"
+import "encoding/binary"
+import "bytes"
 
 var netAddr = "10.2.1.146" // "192.168.110.110"
 var netPort = "1259" // "52381"
@@ -54,6 +56,7 @@ func nullState() error {
 */
 
 func main() {
+	log.Println("STARTING UP")
 	killSignal = make(chan os.Signal, 1)
 	cameraErrChan := make(chan bool)
 	cameraSendChan := make(chan []byte)
@@ -637,14 +640,8 @@ func viscaDecode(rxmsg []byte) (decResp string) {
 					oredbytes |= rxmsg[bytepos]
 				}
 				if (0 == (0xF0 & oredbytes)) {
-					pan := int(rxmsg[2]) * 4096 + int(rxmsg[3]) * 256 + int(rxmsg[4]) * 16 + int(rxmsg[5])
-					if pan >= 32768 {
-						pan = pan - 65536
-					}
-					tilt := int(rxmsg[6]) * 4096 + int(rxmsg[7]) * 256 + int(rxmsg[8]) * 16 + int(rxmsg[9])
-					if tilt >= 32768 {
-						tilt = tilt - 65536
-					}
+					pan := glueNibblesToInt(rxmsg[2:6])
+					tilt := glueNibblesToInt(rxmsg[6:10])
 					return "Pan position: " + strconv.Itoa(pan) + " and Tilt position: " + strconv.Itoa(tilt)
 				}
 			}
@@ -672,6 +669,21 @@ func viscaDecode(rxmsg []byte) (decResp string) {
 		}
 	}
 	return "unknown response type, raw: " + hex.Dump(rxmsg)
+}
+
+func glueNibblesToInt(nibbles []byte) (gluedInt int) {
+	var gluedInt32 int32
+	slicedNibbles := []byte{0,0,0,0} // decode VISCA bytes broken into nibbles
+	if((0x08 & nibbles[0]) > 0) {
+		slicedNibbles[0] = 0xFF
+		slicedNibbles[1] = 0xFF
+	}
+	slicedNibbles[2] = ((nibbles[0] & 0x0F) << 4) | (nibbles[1] & 0x0F)
+	slicedNibbles[3] = ((nibbles[2] & 0x0F) << 4) | (nibbles[3] & 0x0F)
+	nibbleBuf := bytes.NewBuffer(slicedNibbles)
+	binary.Read(nibbleBuf, binary.BigEndian, &gluedInt32)
+	gluedInt = int(gluedInt32)
+	return gluedInt
 }
 
 // Read Pan Tilt Position
