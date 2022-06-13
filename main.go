@@ -4,7 +4,7 @@ import "github.com/splace/joysticks"
 import "log"
 import "strings"
 //import "strconv"
-import "bufio"
+//import "bufio"
 import "time"
 import "math"
 import "fmt"
@@ -116,11 +116,11 @@ func main() {
 		for {
 			loop1 = loop1 + 1
 			select {
-                        case oe := <-jevent:
-                                if((0==oe.Index) && (0==oe.Type) && (0==oe.Value)) {
-                                        panic("null events")
-					controllerDisconnectChan<-true
-                                }
+			case oe := <-jevent:
+					if((0==oe.Index) && (0==oe.Type) && (0==oe.Value)) {
+						panic("null events")
+						controllerDisconnectChan<-true
+					}
 			case h1 := <-h1move:
 				hpos:=h1.(joysticks.CoordsEvent)
 				log.Println("Pos: ", hpos.X, "x, ", hpos.Y, "y")
@@ -285,14 +285,22 @@ func main() {
 		}
 		log.Println("exiting final for loop")
 	}()
-	select {
+	mainrun := true
+	for mainrun {
+		select {
 		case <-killSignal:
+			mainrun = false
 			log.Println("got kill signal!")
 		case <-cameraErrChan:
+			mainrun = false
 			log.Println("camera communication error!")
 		case <-controllerDisconnectChan:
+			mainrun = false
 			log.Println("USB joystick disconnect error!")
+		case rxmsg := <-cameraReceiveChan:
+			log.Println("Camera Response: ", hex.Dump(rxmsg))
 	}
+}
 
 /*	gotoCloseShot()
 	time.Sleep(100 * time.Millisecond) */
@@ -384,14 +392,7 @@ func cameraComm(cameraSendChan <-chan []byte, cameraReceiveChan chan<- []byte, c
 	defer udpconn.Close()
 	// cameraSendChan are bytes sent TO the camera over the network or port
 	// cameraReceiveChan are bytes received back from the camera
-	var camReader *bufio.Reader
-	var camScanner *bufio.Scanner
-	camReader = bufio.NewReader(udpconn)
-	camScanner = bufio.NewScanner(camReader)
-	// Visca messages end in 0xFF, so use that as the termination character
-	// for reading responses back from the serial port (the 0xFF will be stripped)
-	camScanner.Split(AnySplit("\xFF"))
-	go cameraRead(camScanner, cameraReceiveChan, cameraErrChan)
+	go cameraRead(udpconn, cameraReceiveChan, cameraErrChan)
 	for (true) {
 		select {
 		case txmsg := <-cameraSendChan:
@@ -405,18 +406,22 @@ func cameraComm(cameraSendChan <-chan []byte, cameraReceiveChan chan<- []byte, c
 	}
 }
 
-func cameraRead(scanner *bufio.Scanner, cameraReceiveChan chan<- []byte, cameraErrChan chan<- bool) {
+func cameraRead(conn net.Conn, cameraReceiveChan chan<- []byte, cameraErrChan chan<- bool) {
+// Visca messages end in 0xFF, so use that as the termination character
+// for reading responses back from the serial port (the 0xFF will be stripped)
+	readbytes := make([]byte, 2048)
 	run := true
 	for (run) {
 		loop3 = loop3 + 1
-		scanner.Scan()
-		readbytes := []byte(scanner.Text())
-		log.Println("Camera Response: ", hex.Dump(readbytes))
-		cameraReceiveChan <- readbytes
-		scanerror := scanner.Err()
-		if (nil != scanerror) {
+		log.Println("Starting UDP Read")
+		bytecount, readerr := conn.Read(readbytes)
+		cameraresponse := readbytes[:bytecount]
+		cameraReceiveChan <- cameraresponse
+		if (nil != readerr) {
 			run = false
-			log.Print(scanerror)
+			log.Print(readerr)
+		} else {
+			log.Println("UDP Read completed successfully")
 		}
 	}
 	log.Println("exiting serial read goroutine")
