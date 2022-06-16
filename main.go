@@ -20,12 +20,23 @@ import "bytes"
 
 var netAddr = "10.2.1.146" // "192.168.110.110"
 var netPort = "1259" // "52381"
+var camAddr byte = 8 // 8 is broadcast when on a serial link
 
 var timeSlicesPerPanStep, panStepsPerTimeslice int16 = 0,0
 var timeSlicesPerTiltStep, tiltStepsPerTimeslice int16 = 0,0
 var targetPan, targetTilt int16 = 0,0
 var startPan, startTilt int16 = 0,0
 var endPan, endTilt int16 = 0,0
+
+var pan, oldpan int8 = 0,0
+var tilt, oldtilt int8 = 0,0
+var zoom, oldzoom int8 = 0,0
+var focus, oldfocus int8 = 0,0
+var killSignal = make(chan os.Signal, 1)
+var cameraErrChan = make(chan bool)
+var cameraSendChan = make(chan []byte)
+var cameraReceiveChan = make(chan []byte)
+var controllerDisconnectChan = make(chan bool)
 
 // must install:
 // go get -u golang.org/x/tools/cmd/stringer
@@ -47,6 +58,33 @@ const (
 	wbSodiumLampAuto
 	wbSodiumAuto
 )
+
+type stepPTZ struct {
+	msPauseBefore uint32
+	msMoveDuration uint32
+	targetPan int16
+	targetTilt int16
+	targetZoom int16
+	targetFocus int16 // -1 for no focus setting (auto)
+	msPauseAfter uint32
+}
+
+type fixedPTZ struct {
+	msPauseBefore uint32
+	panSpeed int16
+	tiltSpeed int16
+	targetPan int16
+	targetTilt int16
+	targetZoom int16
+	targetFocus int16 // -1 for no focus setting (auto)
+	msPauseAfter uint32
+}
+
+var homePTZ = fixedPTZ{panSpeed: 1, tiltSpeed: 1}
+
+func sendFixedPTZ(target fixedPTZ) {
+	gotoPanTilt(cameraSendChan, camAddr, 10, 10, 65536 - 980, 65536 - 180)
+}
 
 var loop1, loop2, loop3, loop4 uint8 = 0,0,0,0
 var slowPT, oldSlowPT, slowZ, oldSlowZ bool = false, false, false, false
@@ -97,16 +135,6 @@ func checkTimerFraction() (fractionRemaining float64, triggerNow bool) {
 	}
 }
 
-var pan, oldpan int8 = 0,0
-var tilt, oldtilt int8 = 0,0
-var zoom, oldzoom int8 = 0,0
-var focus, oldfocus int8 = 0,0
-var killSignal = make(chan os.Signal, 1)
-var cameraErrChan = make(chan bool)
-var cameraSendChan = make(chan []byte)
-var cameraReceiveChan = make(chan []byte)
-var controllerDisconnectChan = make(chan bool)
-
 func mainControlLoop() {
 	for {
 		loop2 = loop2 + 1
@@ -138,17 +166,17 @@ func mainControlLoop() {
 		if(oldpan != pan) {
 			oldpan = pan
 			log.Println("Pan is now:", oldpan)
-			sendPanTilt(cameraSendChan, 8, speedLimit(deadBand(pan), slowPT), speedLimit(deadBand(tilt), slowPT)) // 8 is broadcast to all cameras
+			sendPanTilt(cameraSendChan, camAddr, speedLimit(deadBand(pan), slowPT), speedLimit(deadBand(tilt), slowPT))
 		}
 		if(oldtilt != tilt) {
 			oldtilt = tilt
 			log.Println("Tilt is now:", oldtilt)
-			sendPanTilt(cameraSendChan, 8, speedLimit(deadBand(pan), slowPT), speedLimit(deadBand(tilt), slowPT)) // 8 is broadcast to all cameras
+			sendPanTilt(cameraSendChan, camAddr, speedLimit(deadBand(pan), slowPT), speedLimit(deadBand(tilt), slowPT))
 		}
 		if(oldSlowPT != slowPT) {
 			oldSlowPT = slowPT
 			log.Println("Tilt speed change")
-			sendPanTilt(cameraSendChan, 8, speedLimit(deadBand(pan), slowPT), speedLimit(deadBand(tilt), slowPT)) // 8 is broadcast to all cameras
+			sendPanTilt(cameraSendChan, camAddr, speedLimit(deadBand(pan), slowPT), speedLimit(deadBand(tilt), slowPT))
 		}
 		if((oldzoom != zoom) || (oldSlowZ != slowZ)) {
 			oldzoom = zoom
@@ -156,21 +184,21 @@ func mainControlLoop() {
 			if(slowZ) {
 				log.Println("Zooming SLOWLY")
 				if(zoom>0) {
-					sendZoom(cameraSendChan, 8, 1) // 8 is broadcast to all cameras
+					sendZoom(cameraSendChan, camAddr, 1)
 				} else if(zoom<0) {
-					sendZoom(cameraSendChan, 8, -1) // 8 is broadcast to all cameras
+					sendZoom(cameraSendChan, camAddr, -1)
 				} else {
-					sendZoom(cameraSendChan, 8, 0) // 8 is broadcast to all cameras
+					sendZoom(cameraSendChan, camAddr, 0)
 				}
 			} else {
 				log.Println("Zoom is now:", oldzoom)
-				sendZoom(cameraSendChan, 8, zoom) // 8 is broadcast to all cameras
+				sendZoom(cameraSendChan, camAddr, zoom)
 			}
 		}
 		if(oldfocus != focus) {
 			oldfocus = focus
 			log.Println("Focus is now:", oldfocus)
-			sendFocus(cameraSendChan, 8, focus) // 8 is broadcast to all cameras
+			sendFocus(cameraSendChan, camAddr, focus)
 		}
 	}
 	log.Println("exiting main control and execution for loop")
@@ -287,10 +315,10 @@ func main() {
 				oldtilt = 0
 				pan = 0
 				oldpan = 0
-				sendPanTilt(cameraSendChan, 8, pan, tilt) // 8 is broadcast to all cameras
+				sendPanTilt(cameraSendChan, camAddr, pan, tilt)
 				zoom = 0
 				oldzoom = 0
-				sendZoom(cameraSendChan, 8, zoom) // 8 is broadcast to all cameras
+				sendZoom(cameraSendChan, camAddr, zoom)
 				slowPT = false
 				slowZ = false
 			case <-b6press:
@@ -301,7 +329,7 @@ func main() {
 				log.Println("button #7 pressed")
 			case <-b8press:
 				log.Println("button #8 pressed, requesting current Pan/Tilt values")
-				getPanTilt(cameraSendChan, 8)
+				getPanTilt(cameraSendChan, camAddr)
 			case <-b9press:
 				log.Println("button #9 pressed")
 			case <-b10press:
@@ -322,10 +350,10 @@ func main() {
 				oldtilt = 0
 				pan = 0
 				oldpan = 0
-				sendPanTilt(cameraSendChan, 8, pan, tilt) // 8 is broadcast to all cameras
+				sendPanTilt(cameraSendChan, camAddr, pan, tilt)
 				zoom = 0
 				oldzoom = 0
-				sendZoom(cameraSendChan, 8, zoom) // 8 is broadcast to all cameras
+				sendZoom(cameraSendChan, camAddr, zoom)
 				slowPT = false
 				slowZ = false
 			case <-b6release:
@@ -334,10 +362,10 @@ func main() {
 				oldtilt = 0
 				pan = 0
 				oldpan = 0
-				sendPanTilt(cameraSendChan, 8, pan, tilt) // 8 is broadcast to all cameras
+				sendPanTilt(cameraSendChan, camAddr, pan, tilt)
 				zoom = 0
 				oldzoom = 0
-				sendZoom(cameraSendChan, 8, zoom) // 8 is broadcast to all cameras
+				sendZoom(cameraSendChan, camAddr, zoom)
 				slowPT = false
 				slowZ = false
 			case <-b7release:
@@ -379,78 +407,78 @@ func main() {
 }
 /*
 func gotoWideShot () {
-	gotoZoom(cameraSendChan, 8, 1000)
-	gotoPanTilt(cameraSendChan, 8, 10, 10, 65536 - 980, 65536 - 180)
+	gotoZoom(cameraSendChan, camAddr, 1000)
+	gotoPanTilt(cameraSendChan, camAddr, 10, 10, 65536 - 980, 65536 - 180)
 }
 
 func gotoCloseShot () {
-	gotoZoom(cameraSendChan, 8, 12500)
-	gotoPanTilt(cameraSendChan, 8, 10, 10, 65536 - 982, 65536 - 123)
+	gotoZoom(cameraSendChan, camAddr, 12500)
+	gotoPanTilt(cameraSendChan, camAddr, 10, 10, 65536 - 982, 65536 - 123)
 }
 
 func gotoLeftShot () {
-	gotoZoom(cameraSendChan, 8, 8000)
-	gotoPanTilt(cameraSendChan, 8, 10, 10, 65536 - 1100, 65536 - 123)
+	gotoZoom(cameraSendChan, camAddr, 8000)
+	gotoPanTilt(cameraSendChan, camAddr, 10, 10, 65536 - 1100, 65536 - 123)
 }
 
 func gotoTempShot () { // TODO: Adjust
-	gotoZoom(cameraSendChan, 8, 14500)
-	gotoPanTilt(cameraSendChan, 8, 10, 10, 65536-97, 65536-132)
+	gotoZoom(cameraSendChan, camAddr, 14500)
+	gotoPanTilt(cameraSendChan, camAddr, 10, 10, 65536-97, 65536-132)
 }
 
 func gotoRightShot () {
-	gotoZoom(cameraSendChan, 8, 8000)
-	gotoPanTilt(cameraSendChan, 8, 10, 10, 65536 - 860, 65536 - 123)
+	gotoZoom(cameraSendChan, camAddr, 8000)
+	gotoPanTilt(cameraSendChan, camAddr, 10, 10, 65536 - 860, 65536 - 123)
 }
 
 func gotoPianoShot () {
-	gotoZoom(cameraSendChan, 8, 12000)
-	gotoPanTilt(cameraSendChan, 8, 10, 10, 65536 - 1302, 65536 - 100)
+	gotoZoom(cameraSendChan, camAddr, 12000)
+	gotoPanTilt(cameraSendChan, camAddr, 10, 10, 65536 - 1302, 65536 - 100)
 }
 
 func gotoDirectorShot () {
-	gotoZoom(cameraSendChan, 8, 12000)
-	gotoPanTilt(cameraSendChan, 8, 10, 10, 65536 - 950, 65536 - 90)
+	gotoZoom(cameraSendChan, camAddr, 12000)
+	gotoPanTilt(cameraSendChan, camAddr, 10, 10, 65536 - 950, 65536 - 90)
 }
 
 func gotoOrganShot () {
-	gotoZoom(cameraSendChan, 8, 12000)
-	gotoPanTilt(cameraSendChan, 8, 10, 10, 65536 - 915, 65536 - 100)
+	gotoZoom(cameraSendChan, camAddr, 12000)
+	gotoPanTilt(cameraSendChan, camAddr, 10, 10, 65536 - 915, 65536 - 100)
 }
 
 func gotoCloseLeftShot () { // TODO: Adjust
-	gotoZoom(cameraSendChan, 8, 13000)
-	gotoPanTilt(cameraSendChan, 8, 10, 10, 65536 - 26, 65536 - 95)
+	gotoZoom(cameraSendChan, camAddr, 13000)
+	gotoPanTilt(cameraSendChan, camAddr, 10, 10, 65536 - 26, 65536 - 95)
 }
 
 func gotoCloseRightShot () { // TODO: Adjust
-	gotoZoom(cameraSendChan, 8, 13000)
-	gotoPanTilt(cameraSendChan, 8, 10, 10, 14, 65536 - 95)
+	gotoZoom(cameraSendChan, camAddr, 13000)
+	gotoPanTilt(cameraSendChan, camAddr, 10, 10, 14, 65536 - 95)
 }
 
 func gotoMediumShot () {
-	gotoZoom(cameraSendChan, 8, 5000)
-	gotoPanTilt(cameraSendChan, 8, 10, 10, 65536 - 980, 65536 - 127)
+	gotoZoom(cameraSendChan, camAddr, 5000)
+	gotoPanTilt(cameraSendChan, camAddr, 10, 10, 65536 - 980, 65536 - 127)
 }
 
 func gotoMediumCloseShot () { // TODO: Adjust
-	gotoZoom(cameraSendChan, 8, 10500)
-	gotoPanTilt(cameraSendChan, 8, 10, 10, 65536 - 6, 65536 - 95)
+	gotoZoom(cameraSendChan, camAddr, 10500)
+	gotoPanTilt(cameraSendChan, camAddr, 10, 10, 65536 - 6, 65536 - 95)
 }
 
 func gotoChoirShot () {
-	gotoZoom(cameraSendChan, 8, 7000)
-	gotoPanTilt(cameraSendChan, 8, 10, 10, 65536 - 1060, 65536 - 100)
+	gotoZoom(cameraSendChan, camAddr, 7000)
+	gotoPanTilt(cameraSendChan, camAddr, 10, 10, 65536 - 1060, 65536 - 100)
 }
 
 func gotoWideScreenShot () { // TODO: Adjust
-	gotoZoom(cameraSendChan, 8, 2000)
-	gotoPanTilt(cameraSendChan, 8, 10, 10, 65536-3, 65536-80)
+	gotoZoom(cameraSendChan, camAddr, 2000)
+	gotoPanTilt(cameraSendChan, camAddr, 10, 10, 65536-3, 65536-80)
 }
 
 func gotoScreenShot () { // TODO: Adjust
-	gotoZoom(cameraSendChan, 8, 11000)
-	gotoPanTilt(cameraSendChan, 8, 10, 10, 65536-3, 20)
+	gotoZoom(cameraSendChan, camAddr, 11000)
+	gotoPanTilt(cameraSendChan, camAddr, 10, 10, 65536-3, 20)
 }
 */
 func cameraComm(cameraSendChan <-chan []byte, cameraReceiveChan chan<- []byte, cameraErrChan chan<- bool) {
