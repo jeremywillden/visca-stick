@@ -59,6 +59,13 @@ const (
 	wbSodiumAuto
 )
 
+type PTZF struct {
+	pan int16
+	tilt int16
+	zoom int16
+	focus int16
+}
+
 type stepPTZ struct {
 	msPauseBefore uint32
 	msMoveDuration uint32
@@ -129,7 +136,7 @@ func checkTimer() (msRemaining uint32, triggerNow bool) {
 	}
 }
 
-func checkTimerFraction() (fractionRemaining float64, triggerNow bool) {
+func checkTimerFraction() (fractionComplete float64, triggerNow bool) {
 	if(mainTimer.triggered) {
 		// timer already elapsed
 		return 100.0, false
@@ -145,7 +152,30 @@ func checkTimerFraction() (fractionRemaining float64, triggerNow bool) {
 	}
 }
 
+func interpolatePTZ(fractionComplete float64, startPTZF PTZF, endPTZF PTZF) (currentPTZF PTZF) {
+	if fractionComplete > 1.0 { fractionComplete = 1.0 }
+	if fractionComplete < 0.0 { fractionComplete = 0.0 }
+	fractionRemaining := 1.0 - fractionComplete
+	currentPTZF.pan = int16(fractionComplete * float64(endPTZF.pan) + fractionRemaining * float64(startPTZF.pan))
+	currentPTZF.tilt = int16(fractionComplete * float64(endPTZF.tilt) + fractionRemaining * float64(startPTZF.tilt))
+	currentPTZF.zoom = int16(fractionComplete * float64(endPTZF.zoom) + fractionRemaining * float64(startPTZF.zoom))
+	currentPTZF.focus = int16(fractionComplete * float64(endPTZF.focus) + fractionRemaining * float64(startPTZF.focus))
+	return 
+}
+
+func gotoPTZF(targetPTZF PTZF) {
+	if 0 ==targetPTZF.focus {
+		gotoZoom(cameraSendChan, camAddr, targetPTZF.zoom)
+	} else {
+		gotoZoomFocus(cameraSendChan, camAddr, targetPTZF.zoom, targetPTZF.focus)
+	}
+	gotoPanTilt(cameraSendChan, camAddr, 1, 1, targetPTZF.pan, targetPTZF.tilt) // panspeed, tiltspeed, pan, tilt
+}
+
 func mainControlLoop() {
+	var startPTZF = PTZF{pan: -500, tilt: -250, zoom: 0}
+	var endPTZF = PTZF{pan: 500, tilt: 250, zoom: 300}
+	var commandPTZF PTZF
 	for {
 		loop2 = loop2 + 1
 		// take care with these shared variables!
@@ -157,9 +187,12 @@ func mainControlLoop() {
 		percentDone, triggerNow := checkTimerFraction()
 		if(triggerNow) {
 			log.Println("TIMER JUST EXPIRED!!!")
-			gotoPanTilt(cameraSendChan, camAddr, 1, 1, 500, 0) // panspeed, tiltspeed, pan, tilt
 		}
-		_ = percentDone
+		if percentDone < 1.0 {
+			commandPTZF = interpolatePTZ(percentDone, startPTZF, endPTZF)
+			gotoPTZF(commandPTZF)
+			fmt.Println(commandPTZF)
+		}
 
 // this test code creates a race condition-induced crash, so it's helpful only to see what the values are in real time
 /*			hatcoordinates := make([]float32, 4)
@@ -231,8 +264,6 @@ func main() {
 	log.Println("cameraComm goroutine started!")
 	go mainControlLoop()
 	log.Println("mainControlLoop goroutine started!")
-	gotoPanTilt(cameraSendChan, camAddr, 24, 24, -500, 0) // panspeed, tiltspeed, pan, tilt
-	startTimer(3000)
 
 	// try connecting to specific controller.
 	// the index is system assigned, typically it increments on each new controller added.
@@ -338,12 +369,14 @@ func main() {
 				slowPT = true
 				slowZ = true
 			case <-b7press:
-				log.Println("button #7 pressed")
-			case <-b8press:
-				log.Println("button #8 pressed, requesting current Pan/Tilt values")
+				log.Println("button #7 pressed, requesting current Pan/Tilt values")
 				getPanTilt(cameraSendChan, camAddr)
+			case <-b8press:
+				startTimer(60000)
+				log.Println("button #8 pressed, starting slow pan")
 			case <-b9press:
-				log.Println("button #9 pressed")
+				gotoPanTilt(cameraSendChan, camAddr, 24, 24, -500, 0) // panspeed, tiltspeed, pan, tilt
+				log.Println("button #9 pressed, going to pan start position")
 			case <-b10press:
 				log.Println("button #10 pressed")
 			case <-b11press:
@@ -435,7 +468,7 @@ func gotoLeftShot () {
 
 func gotoTempShot () { // TODO: Adjust
 	gotoZoom(cameraSendChan, camAddr, 14500)
-	gotoPanTilt(cameraSendChan, camAddr, 10, 10, 65536-97, 65536-132)
+	gotoPanTilt(cameraSendChan, camAddr, 10, 10, -97, -132)
 }
 
 func gotoRightShot () {
@@ -485,12 +518,12 @@ func gotoChoirShot () {
 
 func gotoWideScreenShot () { // TODO: Adjust
 	gotoZoom(cameraSendChan, camAddr, 2000)
-	gotoPanTilt(cameraSendChan, camAddr, 10, 10, 65536-3, 65536-80)
+	gotoPanTilt(cameraSendChan, camAddr, 10, 10, -3, 65536-80)
 }
 
 func gotoScreenShot () { // TODO: Adjust
 	gotoZoom(cameraSendChan, camAddr, 11000)
-	gotoPanTilt(cameraSendChan, camAddr, 10, 10, 65536-3, 20)
+	gotoPanTilt(cameraSendChan, camAddr, 10, 10, -3, 20)
 }
 */
 func cameraComm(cameraSendChan <-chan []byte, cameraReceiveChan chan<- []byte, cameraErrChan chan<- bool) {
