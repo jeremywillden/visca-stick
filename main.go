@@ -81,6 +81,22 @@ func checkTimer() (msRemaining uint32, triggerNow bool) {
 	}
 }
 
+func checkTimerFraction() (fractionRemaining float64, triggerNow bool) {
+	if(mainTimer.triggered) {
+		// timer already elapsed
+		return 100.0, false
+	} else {
+		elapsedTime := time.Since(mainTimer.startTime)
+		completionTarget := mainTimer.duration
+		if (elapsedTime < completionTarget) {
+			return float64(elapsedTime.Seconds() / completionTarget.Seconds()), false
+		} else {
+			mainTimer.triggered = true
+			return 100.0, true
+		}
+	}
+}
+
 var pan, oldpan int8 = 0,0
 var tilt, oldtilt int8 = 0,0
 var zoom, oldzoom int8 = 0,0
@@ -100,10 +116,12 @@ func mainControlLoop() {
 		// read them here and watch for changes
 		//log.Println("loop ", loop1, " ", loop2 , " ", loop3, " ", loop4)
 		time.Sleep(time.Millisecond*125)
-		_, triggerNow := checkTimer()
+		percentDone, triggerNow := checkTimerFraction()
 		if(triggerNow) {
 			log.Println("TIMER JUST EXPIRED!!!")
 		}
+		log.Println(percentDone)
+
 // this test code creates a race condition-induced crash, so it's helpful only to see what the values are in real time
 /*			hatcoordinates := make([]float32, 4)
 		for hatnum:=0; hatnum < 4; hatnum++ {
