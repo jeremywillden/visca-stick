@@ -20,7 +20,12 @@ import "bytes"
 
 var netAddr = "10.2.1.146" // "192.168.110.110"
 var netPort = "1259" // "52381"
-var killSignal chan os.Signal
+
+var timeSlicesPerPanStep, panStepsPerTimeslice int16 = 0,0
+var timeSlicesPerTiltStep, tiltStepsPerTimeslice int16 = 0,0
+var targetPan, targetTilt int16 = 0,0
+var startPan, startTilt int16 = 0,0
+var endPan, endTilt int16 = 0,0
 
 // must install:
 // go get -u golang.org/x/tools/cmd/stringer
@@ -45,7 +50,113 @@ const (
 
 var loop1, loop2, loop3, loop4 uint8 = 0,0,0,0
 var slowPT, oldSlowPT, slowZ, oldSlowZ bool = false, false, false, false
+type timeTrigger struct {
+	startTime time.Time
+	duration time.Duration
+	triggered bool
+}
+var mainTimer timeTrigger
 
+func startTimer(timeDuration uint32) {
+//	time.Sleep(2 * time.Second)
+	mainTimer = timeTrigger{startTime: time.Now(),
+		duration: time.Duration(timeDuration)*time.Millisecond,
+		triggered: false}
+}
+
+func checkTimer() (msRemaining uint32, triggerNow bool) {
+	if(mainTimer.triggered) {
+		// timer already elapsed
+		return 0, false
+	} else {
+		elapsedTime := time.Since(mainTimer.startTime)
+		msElapsed := elapsedTime.Milliseconds()
+		completionTarget := mainTimer.duration.Milliseconds()
+		if (msElapsed < completionTarget) {
+			return uint32((completionTarget - msElapsed)), false
+		} else {
+			mainTimer.triggered = true
+			return 0, true
+		}
+	}
+}
+
+var pan, oldpan int8 = 0,0
+var tilt, oldtilt int8 = 0,0
+var zoom, oldzoom int8 = 0,0
+var focus, oldfocus int8 = 0,0
+var killSignal = make(chan os.Signal, 1)
+var cameraErrChan = make(chan bool)
+var cameraSendChan = make(chan []byte)
+var cameraReceiveChan = make(chan []byte)
+var controllerDisconnectChan = make(chan bool)
+
+func mainControlLoop() {
+	for {
+		loop2 = loop2 + 1
+		// take care with these shared variables!
+		// they are single-byte to avoid race issues
+		// only write them in the joystick routine
+		// read them here and watch for changes
+		//log.Println("loop ", loop1, " ", loop2 , " ", loop3, " ", loop4)
+		time.Sleep(time.Millisecond*125)
+		_, triggerNow := checkTimer()
+		if(triggerNow) {
+			log.Println("TIMER JUST EXPIRED!!!")
+		}
+// this test code creates a race condition-induced crash, so it's helpful only to see what the values are in real time
+/*			hatcoordinates := make([]float32, 4)
+		for hatnum:=0; hatnum < 4; hatnum++ {
+			if device.HatExists(uint8(hatnum)) {
+				log.Println("Hat number: ", strconv.Itoa(hatnum))
+				device.HatCoords(uint8(hatnum), hatcoordinates) // 3 is right hat vertical axis
+				log.Println("Hat Coordinates: ", hatcoordinates)
+			}
+		}
+		device.HatCoords(1, hatcoordinates)
+		log.Println("Hat 1 Coordinates: ", hatcoordinates)
+		device.HatCoords(3, hatcoordinates)
+		log.Println("Hat 3 Coordinates: ", hatcoordinates) */
+		if(oldpan != pan) {
+			oldpan = pan
+			log.Println("Pan is now:", oldpan)
+			sendPanTilt(cameraSendChan, 8, speedLimit(deadBand(pan), slowPT), speedLimit(deadBand(tilt), slowPT)) // 8 is broadcast to all cameras
+		}
+		if(oldtilt != tilt) {
+			oldtilt = tilt
+			log.Println("Tilt is now:", oldtilt)
+			sendPanTilt(cameraSendChan, 8, speedLimit(deadBand(pan), slowPT), speedLimit(deadBand(tilt), slowPT)) // 8 is broadcast to all cameras
+		}
+		if(oldSlowPT != slowPT) {
+			oldSlowPT = slowPT
+			log.Println("Tilt speed change")
+			sendPanTilt(cameraSendChan, 8, speedLimit(deadBand(pan), slowPT), speedLimit(deadBand(tilt), slowPT)) // 8 is broadcast to all cameras
+		}
+		if((oldzoom != zoom) || (oldSlowZ != slowZ)) {
+			oldzoom = zoom
+			oldSlowZ = slowZ
+			if(slowZ) {
+				log.Println("Zooming SLOWLY")
+				if(zoom>0) {
+					sendZoom(cameraSendChan, 8, 1) // 8 is broadcast to all cameras
+				} else if(zoom<0) {
+					sendZoom(cameraSendChan, 8, -1) // 8 is broadcast to all cameras
+				} else {
+					sendZoom(cameraSendChan, 8, 0) // 8 is broadcast to all cameras
+				}
+			} else {
+				log.Println("Zoom is now:", oldzoom)
+				sendZoom(cameraSendChan, 8, zoom) // 8 is broadcast to all cameras
+			}
+		}
+		if(oldfocus != focus) {
+			oldfocus = focus
+			log.Println("Focus is now:", oldfocus)
+			sendFocus(cameraSendChan, 8, focus) // 8 is broadcast to all cameras
+		}
+	}
+	log.Println("exiting main control and execution for loop")
+}
 /*
 var TestState TestStateT
 
@@ -57,23 +168,20 @@ func nullState() error {
 
 func main() {
 	log.Println("STARTING UP")
-	killSignal = make(chan os.Signal, 1)
-	cameraErrChan := make(chan bool)
-	cameraSendChan := make(chan []byte)
-	cameraReceiveChan := make(chan []byte)
-	controllerDisconnectChan := make(chan bool)
+	startTimer(3000)
 	signal.Notify(killSignal, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGSTOP, syscall.SIGQUIT)
 
 	go cameraComm(cameraSendChan, cameraReceiveChan, cameraErrChan)
+	log.Println("cameraComm goroutine started!")
+	go mainControlLoop()
+	log.Println("mainControlLoop goroutine started!")
 
-	var pan, oldpan int8 = 0,0
-	var tilt, oldtilt int8 = 0,0
-	var zoom, oldzoom int8 = 0,0
-	var focus, oldfocus int8 = 0,0
 	// try connecting to specific controller.
 	// the index is system assigned, typically it increments on each new controller added.
 	// indexes remain fixed for a given controller, if/when other controller(s) are removed.
+	log.Println("about to connect to the joystick")
 	device := joysticks.Connect(1)
+	log.Println("joysticks.Connect completed")
 
 	if device == nil {
 		panic("no HID Joystick/Controllers detected")
@@ -109,10 +217,11 @@ func main() {
 	h2move := device.OnMove(2)
 	h3move := device.OnMove(3)
 	h4move := device.OnMove(4)
-        jevent := device.OSEvents
+    jevent := device.OSEvents
 
 	// start feeding OS events onto the event channels.
 	go device.ParcelOutEvents()
+	log.Println("device.ParcelOutEvents goroutine started!")
 
 	// handle event channels
 	go func() {
@@ -227,69 +336,8 @@ func main() {
 		}
 		log.Println("exiting event capture goroutine")
 	}()
+	log.Println("event channels started!")
 
-	go func() {
-		for {
-			loop2 = loop2 + 1
-			// take care with these shared variables!
-			// they are single-byte to avoid race issues
-			// only write them in the joystick routine
-			// read them here and watch for changes
-			//log.Println("loop ", loop1, " ", loop2 , " ", loop3, " ", loop4)
-			time.Sleep(time.Millisecond*125)
-// this test code creates a race condition-induced crash, so it's helpful only to see what the values are in real time
-/*			hatcoordinates := make([]float32, 4)
-			for hatnum:=0; hatnum < 4; hatnum++ {
-				if device.HatExists(uint8(hatnum)) {
-					log.Println("Hat number: ", strconv.Itoa(hatnum))
-					device.HatCoords(uint8(hatnum), hatcoordinates) // 3 is right hat vertical axis
-					log.Println("Hat Coordinates: ", hatcoordinates)
-				}
-			}
-			device.HatCoords(1, hatcoordinates)
-			log.Println("Hat 1 Coordinates: ", hatcoordinates)
-			device.HatCoords(3, hatcoordinates)
-			log.Println("Hat 3 Coordinates: ", hatcoordinates) */
-			if(oldpan != pan) {
-				oldpan = pan
-				log.Println("Pan is now:", oldpan)
-				sendPanTilt(cameraSendChan, 8, speedLimit(deadBand(pan), slowPT), speedLimit(deadBand(tilt), slowPT)) // 8 is broadcast to all cameras
-			}
-			if(oldtilt != tilt) {
-				oldtilt = tilt
-				log.Println("Tilt is now:", oldtilt)
-				sendPanTilt(cameraSendChan, 8, speedLimit(deadBand(pan), slowPT), speedLimit(deadBand(tilt), slowPT)) // 8 is broadcast to all cameras
-			}
-			if(oldSlowPT != slowPT) {
-				oldSlowPT = slowPT
-				log.Println("Tilt speed change")
-				sendPanTilt(cameraSendChan, 8, speedLimit(deadBand(pan), slowPT), speedLimit(deadBand(tilt), slowPT)) // 8 is broadcast to all cameras
-			}
-			if((oldzoom != zoom) || (oldSlowZ != slowZ)) {
-				oldzoom = zoom
-				oldSlowZ = slowZ
-				if(slowZ) {
-					log.Println("Zooming SLOWLY")
-					if(zoom>0) {
-						sendZoom(cameraSendChan, 8, 1) // 8 is broadcast to all cameras
-					} else if(zoom<0) {
-						sendZoom(cameraSendChan, 8, -1) // 8 is broadcast to all cameras
-					} else {
-						sendZoom(cameraSendChan, 8, 0) // 8 is broadcast to all cameras
-					}
-				} else {
-					log.Println("Zoom is now:", oldzoom)
-					sendZoom(cameraSendChan, 8, zoom) // 8 is broadcast to all cameras
-				}
-			}
-			if(oldfocus != focus) {
-				oldfocus = focus
-				log.Println("Focus is now:", oldfocus)
-				sendFocus(cameraSendChan, 8, focus) // 8 is broadcast to all cameras
-			}
-		}
-		log.Println("exiting final for loop")
-	}()
 	mainrun := true
 	for mainrun {
 		select {
