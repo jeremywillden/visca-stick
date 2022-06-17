@@ -19,7 +19,7 @@ import "encoding/binary"
 import "bytes"
 
 var netAddr = "10.2.1.146" // "192.168.110.110"
-var netPort = "1259" // "52381"
+var netPort = "1259" // "52381" // 1259 is UDP VISCA, 5678 is TCP VISCA
 var camAddr byte = 8 // 8 is broadcast when on a serial link
 
 var timeSlicesPerPanStep, panStepsPerTimeslice int16 = 0,0
@@ -857,4 +857,6 @@ func glueNibblesToInt(nibbles []byte) (gluedInt int) {
 // 0xtuvw - tilt position
 
 // VISCA command references:
+// https://ptzoptics.com/wp-content/uploads/2020/11/PTZOptics-VISCA-over-IP-Rev-1_2-8-20.pdf
+// https://help.ptzoptics.com/support/solutions/articles/13000077734-an-introduction-to-ip-control-scripting-for-ptzoptics-cameras
 // https://www.epiphan.com/userguides/LUMiO12x/Content/UserGuides/PTZ/3-operation/VISCAcommands.htm
