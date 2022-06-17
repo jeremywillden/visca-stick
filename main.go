@@ -27,6 +27,9 @@ var timeSlicesPerTiltStep, tiltStepsPerTimeslice int16 = 0,0
 var targetPan, targetTilt int16 = 0,0
 var startPan, startTilt int16 = 0,0
 var endPan, endTilt int16 = 0,0
+var startPTZF = PTZF{pan: -500, tilt: -250, zoom: 0}
+var endPTZF = PTZF{pan: 500, tilt: 250, zoom: 4400}
+var commandPTZF, oldTargetPTZF PTZF
 
 var pan, oldpan int8 = 0,0
 var tilt, oldtilt int8 = 0,0
@@ -152,30 +155,51 @@ func checkTimerFraction() (fractionComplete float64, triggerNow bool) {
 	}
 }
 
-func interpolatePTZ(fractionComplete float64, startPTZF PTZF, endPTZF PTZF) (currentPTZF PTZF) {
+func interpolatePTZ(fractionComplete float64, startingPTZF PTZF, endingPTZF PTZF) (currentPTZF PTZF) {
 	if fractionComplete > 1.0 { fractionComplete = 1.0 }
 	if fractionComplete < 0.0 { fractionComplete = 0.0 }
 	fractionRemaining := 1.0 - fractionComplete
-	currentPTZF.pan = int16(fractionComplete * float64(endPTZF.pan) + fractionRemaining * float64(startPTZF.pan))
-	currentPTZF.tilt = int16(fractionComplete * float64(endPTZF.tilt) + fractionRemaining * float64(startPTZF.tilt))
-	currentPTZF.zoom = int16(fractionComplete * float64(endPTZF.zoom) + fractionRemaining * float64(startPTZF.zoom))
-	currentPTZF.focus = int16(fractionComplete * float64(endPTZF.focus) + fractionRemaining * float64(startPTZF.focus))
+	currentPTZF.pan = int16(fractionComplete * float64(endingPTZF.pan) + fractionRemaining * float64(startingPTZF.pan))
+	currentPTZF.tilt = int16(fractionComplete * float64(endingPTZF.tilt) + fractionRemaining * float64(startingPTZF.tilt))
+	currentPTZF.zoom = int16(fractionComplete * float64(endingPTZF.zoom) + fractionRemaining * float64(startingPTZF.zoom))
+	currentPTZF.focus = int16(fractionComplete * float64(endingPTZF.focus) + fractionRemaining * float64(startingPTZF.focus))
 	return 
 }
 
 func gotoPTZF(targetPTZF PTZF) {
 	if 0 ==targetPTZF.focus {
-		gotoZoom(cameraSendChan, camAddr, targetPTZF.zoom)
+		if(oldTargetPTZF.zoom != targetPTZF.zoom) {
+			gotoZoom(cameraSendChan, camAddr, targetPTZF.zoom)
+		}
 	} else {
-		gotoZoomFocus(cameraSendChan, camAddr, targetPTZF.zoom, targetPTZF.focus)
+		if( (oldTargetPTZF.zoom != targetPTZF.zoom) || (oldTargetPTZF.focus != targetPTZF.focus) ) {
+			gotoZoomFocus(cameraSendChan, camAddr, targetPTZF.zoom, targetPTZF.focus)
+		}
 	}
-	gotoPanTilt(cameraSendChan, camAddr, 1, 1, targetPTZF.pan, targetPTZF.tilt) // panspeed, tiltspeed, pan, tilt
+	if( (oldTargetPTZF.pan != targetPTZF.pan) || (oldTargetPTZF.tilt != targetPTZF.tilt) ) {
+		gotoPanTilt(cameraSendChan, camAddr, 1, 1, targetPTZF.pan, targetPTZF.tilt) // panspeed, tiltspeed, pan, tilt
+	}
+	oldTargetPTZF = commandPTZF
+}
+
+func gotoPTZFspeed(targetPTZF PTZF, panspeed int16, tiltspeed int16) {
+	// TODO: would like a variable speed zoom here
+	if 0 ==targetPTZF.focus {
+		if(oldTargetPTZF.zoom != targetPTZF.zoom) {
+			gotoZoom(cameraSendChan, camAddr, targetPTZF.zoom)
+		}
+	} else {
+		if( (oldTargetPTZF.zoom != targetPTZF.zoom) || (oldTargetPTZF.focus != targetPTZF.focus) ) {
+			gotoZoomFocus(cameraSendChan, camAddr, targetPTZF.zoom, targetPTZF.focus)
+		}
+	}
+	if( (oldTargetPTZF.pan != targetPTZF.pan) || (oldTargetPTZF.tilt != targetPTZF.tilt) ) {
+		gotoPanTilt(cameraSendChan, camAddr, panspeed, tiltspeed, targetPTZF.pan, targetPTZF.tilt) // panspeed, tiltspeed, pan, tilt
+	}
+	oldTargetPTZF = commandPTZF
 }
 
 func mainControlLoop() {
-	var startPTZF = PTZF{pan: -500, tilt: -250, zoom: 0}
-	var endPTZF = PTZF{pan: 500, tilt: 250, zoom: 300}
-	var commandPTZF PTZF
 	for {
 		loop2 = loop2 + 1
 		// take care with these shared variables!
@@ -375,7 +399,8 @@ func main() {
 				startTimer(60000)
 				log.Println("button #8 pressed, starting slow pan")
 			case <-b9press:
-				gotoPanTilt(cameraSendChan, camAddr, 24, 24, -500, 0) // panspeed, tiltspeed, pan, tilt
+				gotoPTZFspeed(startPTZF, 24, 24)
+				//gotoPanTilt(cameraSendChan, camAddr, 24, 24, -500, 0) // panspeed, tiltspeed, pan, tilt
 				log.Println("button #9 pressed, going to pan start position")
 			case <-b10press:
 				log.Println("button #10 pressed")
@@ -653,11 +678,11 @@ func gotoZoomFocus(cameraSendChan chan<- []byte, cam byte, zoom int16, focus int
 func gotoPanTilt(cameraSendChan chan<- []byte, cam byte, panspeed int16, tiltspeed int16, pan int16, tilt int16) {
 	// Direct pan and tilt command at specific speed
 	var m, n byte
-	if(panspeed>24) {panspeed = 0}
-	if(panspeed<(-24)) {panspeed = 0}
+	if(panspeed>24) {panspeed = 24}
+	if(panspeed<(-24)) {panspeed = -24}
 	if(panspeed>=0) {m=byte(panspeed)} else {m=byte(0-panspeed)}
-	if(tiltspeed>20) {tiltspeed = 0}
-	if(tiltspeed<(-20)) {tiltspeed = 0}
+	if(tiltspeed>20) {tiltspeed = 20}
+	if(tiltspeed<(-20)) {tiltspeed = 20}
 	if(tiltspeed>=0) {n=byte(tiltspeed)} else {n=byte(0-tiltspeed)}
 	p := 0x0F & byte(uint16(pan) >> 12)
 	q := 0x0F & byte(uint16(pan) >> 8)
@@ -830,3 +855,6 @@ func glueNibblesToInt(nibbles []byte) (gluedInt int) {
 // 0xy0 0x50 0x0p 0x0q 0x0r 0x0s 0x0t 0x0u 0x0v 0x0w 0xFF (response)
 // 0xpqrs - pan position
 // 0xtuvw - tilt position
+
+// VISCA command references:
+// https://www.epiphan.com/userguides/LUMiO12x/Content/UserGuides/PTZ/3-operation/VISCAcommands.htm
