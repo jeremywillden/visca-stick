@@ -309,7 +309,8 @@ func main() {
 		case <-controllerDisconnectChan:
 	}
 */
-	gotoMediumCloseShot()
+	camMenuToggle()
+//	gotoVeryCloseShot()
 	time.Sleep(1 * time.Second)
 	log.Println("exiting!")
 }
@@ -331,7 +332,7 @@ func gotoLeftShot () {
 
 func gotoTempShot () {
 	gotoZoom(camPort, 8, 14500)
-	gotoPanTilt(camPort, 8, 10, 10, 65536-97, 65536-132)
+	gotoPanTilt(camPort, 8, 10, 10, 65536-150, 65536-128)
 }
 
 func gotoRightShot () {
@@ -362,6 +363,11 @@ func gotoWideShot () {
 func gotoCloseShot () {
 	gotoZoom(camPort, 8, 12500)
 	gotoPanTilt(camPort, 8, 10, 10, 65536 - 6, 65536 - 95)
+}
+
+func gotoVeryCloseShot () {
+	gotoZoom(camPort, 8, 14500)
+	gotoPanTilt(camPort, 8, 10, 10, 65536 - 6, 65536 - 90)
 }
 
 func gotoCloseLeftShot () {
@@ -575,6 +581,18 @@ func speedLimit(speed int8, limited bool) (limitedspeed int8) {
 	return 0
 	}
 	return speed
+}
+
+func camMenuOn() () {
+	sendVisca(port, []byte{(0x80+cam), 0x01, 0x06, 0x06, 0x02, 0xFF})
+}
+
+func camMenuOff() () {
+	sendVisca(port, []byte{(0x80+cam), 0x01, 0x06, 0x06, 0x03, 0xFF})
+}
+
+func camMenuToggle() () {
+	sendVisca(port, []byte{(0x80+cam), 0x01, 0x06, 0x06, 0x10, 0xFF})
 }
 
 // Read Pan Tilt Position
